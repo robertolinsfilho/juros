@@ -121,37 +121,33 @@ class _LoanDialogState extends State<_LoanDialog> {
     final interest = plan.fold<int>(0, (sum, item) => sum + item.interestCents);
     final total = plan.fold<int>(0, (sum, item) => sum + item.totalCents);
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: const Text('Novo empréstimo'),
       content: SizedBox(
-        width: 640,
+        width: dialogWidth(context, 640),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: clientId,
-                      decoration: const InputDecoration(labelText: 'Cliente'),
-                      items: [
-                        for (final client in clients)
-                          DropdownMenuItem(value: client.id, child: Text(client.name)),
-                      ],
-                      onChanged: (value) => setState(() => clientId = value),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(onPressed: addClient, child: const Text('Novo')),
-                ],
+              FieldPair(
+                left: DropdownButtonFormField<int>(
+                  initialValue: clientId,
+                  decoration: const InputDecoration(labelText: 'Cliente'),
+                  items: [
+                    for (final client in clients)
+                      DropdownMenuItem(value: client.id, child: Text(client.name)),
+                  ],
+                  onChanged: (value) => setState(() => clientId = value),
+                ),
+                right: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(onPressed: addClient, child: const Text('Novo')),
+                ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: TextField(controller: principal, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Valor'), keyboardType: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: TextField(controller: rate, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Taxa de juros (%)'), keyboardType: TextInputType.number)),
-                ],
+              FieldPair(
+                left: TextField(controller: principal, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Valor'), keyboardType: TextInputType.number),
+                right: TextField(controller: rate, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Taxa de juros (%)'), keyboardType: TextInputType.number),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<ContractMode>(

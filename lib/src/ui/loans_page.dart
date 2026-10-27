@@ -50,7 +50,7 @@ class _LoansPageState extends State<LoansPage> {
     final open = items.where((loan) => loan.displayStatus == 'Aberto').length;
     final late = items.where((loan) => loan.displayStatus == 'Atrasado').length;
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Empréstimos',
@@ -117,24 +117,16 @@ class _LoansPageState extends State<LoansPage> {
         else
           for (final loan in items) ...[
             Panel(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
+              padding: EdgeInsets.zero,
+              child: RecordTile(
                 onTap: () => setState(() => selected = loan.id),
-                title: Text(loan.clientName),
-                subtitle: Text(
-                  '${loan.typeLabel}\n${fmtMoney(loan.principalCents)} · ${fmtRate(loan.rateBps)} · ${loan.count} parcelas'
-                  '${showNotes && loan.notes.isNotEmpty ? '\n${loan.notes}' : ''}',
-                ),
-                isThreeLine: showNotes && loan.notes.isNotEmpty,
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    StatusPill(label: loan.displayStatus),
-                    const SizedBox(height: 6),
-                    Text(loan.nextDue == null ? fmtMoney(loan.openCents) : '${fmtDateIso(loan.nextDue!)} · ${fmtMoney(loan.openCents)}'),
-                  ],
-                ),
+                title: loan.clientName,
+                subtitle: '${loan.typeLabel}\n${fmtMoney(loan.principalCents)} · ${fmtRate(loan.rateBps)} · ${loan.count} parcelas'
+                    '${showNotes && loan.notes.isNotEmpty ? '\n${loan.notes}' : ''}',
+                actions: [
+                  StatusPill(label: loan.displayStatus),
+                  Text(loan.nextDue == null ? fmtMoney(loan.openCents) : '${fmtDateIso(loan.nextDue!)} · ${fmtMoney(loan.openCents)}'),
+                ],
               ),
             ),
             const SizedBox(height: 8),
@@ -206,7 +198,7 @@ class _LoanDetail extends StatelessWidget {
     final items = repo.installmentsOf(loan.id);
     final mode = RateModeLabel.parse(loan.rateMode).label;
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: loan.clientName,
@@ -229,22 +221,18 @@ class _LoanDetail extends StatelessWidget {
           child: Column(
             children: [
               for (final item in items)
-                ListTile(
-                  title: Text('Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}'),
-                  subtitle: Text(
-                    'Capital ${fmtMoney(item.principalCents)} · juros ${fmtMoney(item.interestCents)}'
-                    '${item.isOpen && item.liveLateCents(DateTime.now()) > 0 ? ' · mora ${fmtMoney(item.liveLateCents(DateTime.now()))}' : ''}'
-                    '${item.paidAt != null ? ' · pago em ${fmtDateIso(item.paidAt!)}' : ''}',
-                  ),
-                  trailing: item.isOpen
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(onPressed: () => charge(context, item), child: const Text('Cobrar')),
-                            FilledButton(onPressed: () => receive(context, item), child: const Text('Receber')),
-                          ],
-                        )
-                      : StatusPill(label: item.status == 'paga' ? 'Pago' : 'Perdido'),
+                RecordTile(
+                  title: 'Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}',
+                  subtitle: 'Capital ${fmtMoney(item.principalCents)} · juros ${fmtMoney(item.interestCents)}'
+                      '${item.isOpen && item.liveLateCents(DateTime.now()) > 0 ? ' · mora ${fmtMoney(item.liveLateCents(DateTime.now()))}' : ''}'
+                      '${item.paidAt != null ? ' · pago em ${fmtDateIso(item.paidAt!)}' : ''}',
+                  actions: [
+                    if (item.isOpen) ...[
+                      TextButton(onPressed: () => charge(context, item), child: const Text('Cobrar')),
+                      FilledButton(onPressed: () => receive(context, item), child: const Text('Receber')),
+                    ] else
+                      StatusPill(label: item.status == 'paga' ? 'Pago' : 'Perdido'),
+                  ],
                 ),
             ],
           ),

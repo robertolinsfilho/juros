@@ -52,7 +52,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final cash = widget.repo.cash();
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Dashboard',
@@ -145,10 +145,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 for (final week in data.weeks)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.spaceBetween,
                       children: [
-                        SizedBox(width: 72, child: Text(week.label, style: const TextStyle(color: AppColors.muted))),
-                        Expanded(child: Text(fmtMoney(week.expectedCents))),
+                        Text(week.label, style: const TextStyle(color: AppColors.muted)),
+                        Text(fmtMoney(week.expectedCents)),
                         Text('recebido ${fmtMoney(week.receivedCents)}', style: const TextStyle(color: AppColors.green)),
                       ],
                     ),
@@ -170,18 +173,13 @@ class _DueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(item.clientName),
-      subtitle: Text('Parcela ${item.number}/${item.count}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(fmtMoney(item.dueCents(DateTime.now()))),
-          const SizedBox(width: 8),
-          TextButton(onPressed: onCharge, child: const Text('Cobrar')),
-        ],
-      ),
+    return RecordTile(
+      title: item.clientName,
+      subtitle: 'Parcela ${item.number}/${item.count}',
+      actions: [
+        Text(fmtMoney(item.dueCents(DateTime.now()))),
+        TextButton(onPressed: onCharge, child: const Text('Cobrar')),
+      ],
     );
   }
 }

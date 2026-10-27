@@ -21,7 +21,7 @@ class _TrashPageState extends State<TrashPage> {
     final loanItems = widget.repo.listLoans(deleted: true);
     final clients = widget.repo.listClients(deleted: true);
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         const PageHeader(
           title: 'Lixeira',

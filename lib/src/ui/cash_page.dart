@@ -70,7 +70,7 @@ class _CashPageState extends State<CashPage> {
     final cash = widget.repo.cash();
     if (!cash.enabled) {
       return ListView(
-        padding: const EdgeInsets.all(24),
+        padding: pagePadding(context),
         children: [
           const PageHeader(title: 'Caixa', subtitle: 'Controle de entradas, saídas e saldo'),
           const SizedBox(height: 16),
@@ -92,7 +92,7 @@ class _CashPageState extends State<CashPage> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Caixa',
@@ -109,12 +109,9 @@ class _CashPageState extends State<CashPage> {
           accent: cash.low ? AppColors.amber : AppColors.green,
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: TextField(controller: amount, decoration: const InputDecoration(labelText: 'Valor'), keyboardType: TextInputType.number)),
-            const SizedBox(width: 12),
-            Expanded(child: TextField(controller: note, decoration: const InputDecoration(labelText: 'Observação'))),
-          ],
+        FieldPair(
+          left: TextField(controller: amount, decoration: const InputDecoration(labelText: 'Valor'), keyboardType: TextInputType.number),
+          right: TextField(controller: note, decoration: const InputDecoration(labelText: 'Observação')),
         ),
         const SizedBox(height: 12),
         Wrap(

@@ -16,22 +16,133 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
+        Text(title, style: narrow ? Theme.of(context).textTheme.headlineSmall : Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 4),
+        Text(subtitle, style: const TextStyle(color: AppColors.muted)),
+      ],
+    );
+    final actionBlock = Wrap(spacing: 8, runSpacing: 8, children: actions);
+    if (narrow || actions.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          titleBlock,
+          if (actions.isNotEmpty) ...[const SizedBox(height: 12), actionBlock],
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: titleBlock),
+        const SizedBox(width: 12),
+        actionBlock,
+      ],
+    );
+  }
+}
+
+EdgeInsets pagePadding(BuildContext context) {
+  return EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24);
+}
+
+double dialogWidth(BuildContext context, double maxWidth) {
+  final available = MediaQuery.sizeOf(context).width - 32;
+  return available < maxWidth ? available : maxWidth;
+}
+
+class FieldPair extends StatelessWidget {
+  const FieldPair({super.key, required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 460) {
+          return Column(
+            children: [
+              left,
+              const SizedBox(height: 12),
+              right,
+            ],
+          );
+        }
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: AppColors.muted)),
+            Expanded(child: left),
+            const SizedBox(width: 12),
+            Expanded(child: right),
           ],
-        ),
-        Wrap(spacing: 8, runSpacing: 8, children: actions),
+        );
+      },
+    );
+  }
+}
+
+class RecordTile extends StatelessWidget {
+  const RecordTile({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actions = const [],
+    this.onTap,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> actions;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(subtitle!, style: const TextStyle(color: AppColors.muted)),
+        ],
       ],
+    );
+    final buttons = Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: actions,
+    );
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 640) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  text,
+                  if (actions.isNotEmpty) ...[const SizedBox(height: 8), buttons],
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: text),
+                if (actions.isNotEmpty) ...[const SizedBox(width: 12), buttons],
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -77,7 +188,11 @@ class MetricCard extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12, letterSpacing: 0.4)),
           const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: accent)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: accent)),
+          ),
           const SizedBox(height: 4),
           Text(caption, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
@@ -156,7 +271,7 @@ void showError(BuildContext context, String message) {
 Widget metricGrid(List<Widget> cards) {
   return LayoutBuilder(
     builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 1100 ? 4 : constraints.maxWidth >= 700 ? 2 : 1;
+      final columns = constraints.maxWidth >= 1000 ? 4 : constraints.maxWidth >= 480 ? 2 : 1;
       const gap = 12.0;
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       return Wrap(
@@ -171,7 +286,7 @@ Widget metricGrid(List<Widget> cards) {
 Widget sideBySide(Widget left, Widget right) {
   return LayoutBuilder(
     builder: (context, constraints) {
-      if (constraints.maxWidth < 900) {
+      if (constraints.maxWidth < 720) {
         return Column(
           children: [
             left,

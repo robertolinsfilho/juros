@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/repository.dart';
 import '../format.dart';
+import 'widgets.dart';
 
 Future<bool> showClientForm(BuildContext context, Repo repo, {ClientRecord? client}) {
   return showDialog<bool>(
@@ -61,9 +62,10 @@ class _ClientDialogState extends State<_ClientDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Text(widget.client == null ? 'Novo cliente' : 'Editar cliente'),
       content: SizedBox(
-        width: 480,
+        width: dialogWidth(context, 480),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

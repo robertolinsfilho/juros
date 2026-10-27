@@ -29,6 +29,12 @@ ThemeData buildTheme() {
     brightness: Brightness.dark,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.bg,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: AppColors.sidebar,
+      foregroundColor: AppColors.text,
+      elevation: 0,
+      centerTitle: false,
+    ),
     dividerColor: AppColors.line,
     cardTheme: const CardThemeData(
       color: AppColors.card,

@@ -67,7 +67,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     final days = DateTime(cursor.year, cursor.month + 1, 0).day;
     final leading = first.weekday % 7;
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Cobranças',
@@ -132,18 +132,14 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   const EmptyHint(icon: Icons.event_available, title: 'Dia livre', body: 'Nenhuma parcela em aberto nesta data.')
                 else
                   for (final item in due)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(item.clientName),
-                      subtitle: Text('Parcela ${item.number}/${item.count}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(fmtMoney(item.dueCents(DateTime.now()))),
-                          TextButton(onPressed: () => charge(item), child: const Text('Cobrar')),
-                          FilledButton(onPressed: () => receive(item), child: const Text('Receber')),
-                        ],
-                      ),
+                    RecordTile(
+                      title: item.clientName,
+                      subtitle: 'Parcela ${item.number}/${item.count}',
+                      actions: [
+                        Text(fmtMoney(item.dueCents(DateTime.now()))),
+                        TextButton(onPressed: () => charge(item), child: const Text('Cobrar')),
+                        FilledButton(onPressed: () => receive(item), child: const Text('Receber')),
+                      ],
                     ),
               ],
             ),

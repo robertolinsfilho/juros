@@ -56,7 +56,7 @@ class _ClientsPageState extends State<ClientsPage> {
     final overdue = clients.where((client) => client.overdueCount > 0).length;
     final today = clients.where((client) => client.dueToday > 0).length;
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Clientes',
@@ -89,18 +89,15 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Column(
               children: [
                 for (final client in clients)
-                  ListTile(
-                    title: Text(client.name),
-                    subtitle: Text('${client.document.isEmpty ? 'Sem documento' : client.document} · ${fmtPhone(client.phone)}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        StatusPill(label: client.statusLabel),
-                        IconButton(tooltip: 'WhatsApp', onPressed: () => chat(client), icon: const Icon(Icons.chat_outlined)),
-                        IconButton(tooltip: 'Editar', onPressed: () => edit(client), icon: const Icon(Icons.edit_outlined)),
-                        IconButton(tooltip: 'Excluir', onPressed: () => remove(client), icon: const Icon(Icons.delete_outline)),
-                      ],
-                    ),
+                  RecordTile(
+                    title: client.name,
+                    subtitle: '${client.document.isEmpty ? 'Sem documento' : client.document} · ${fmtPhone(client.phone)}',
+                    actions: [
+                      StatusPill(label: client.statusLabel),
+                      IconButton(tooltip: 'WhatsApp', onPressed: () => chat(client), icon: const Icon(Icons.chat_outlined)),
+                      IconButton(tooltip: 'Editar', onPressed: () => edit(client), icon: const Icon(Icons.edit_outlined)),
+                      IconButton(tooltip: 'Excluir', onPressed: () => remove(client), icon: const Icon(Icons.delete_outline)),
+                    ],
                   ),
               ],
             ),

@@ -6,7 +6,7 @@
     "background_color": "#0E141B",
     "theme_color": "#0E141B",
     "description": "Controle de empréstimos, parcelas e recebimentos.",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -37,11 +37,11 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         const PageHeader(
           title: 'Configurações',
-          subtitle: 'Nome, PIX e tamanho da letra neste computador',
+          subtitle: 'Nome, PIX e tamanho da letra',
         ),
         const SizedBox(height: 16),
         TextField(controller: creditor, decoration: const InputDecoration(labelText: 'Seu nome nas cobranças')),
@@ -68,7 +68,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Os dados ficam só neste computador.'),
+              const Text('Os dados ficam só neste navegador.'),
               const SizedBox(height: 8),
               SelectableText(widget.repo.dbPath),
               const SizedBox(height: 8),

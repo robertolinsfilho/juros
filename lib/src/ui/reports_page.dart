@@ -29,7 +29,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final bounds = range;
     final data = widget.repo.report(bounds.$1, bounds.$2);
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: pagePadding(context),
       children: [
         PageHeader(
           title: 'Relatórios',

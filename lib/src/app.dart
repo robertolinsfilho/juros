@@ -70,14 +70,11 @@ class _JurosAppState extends State<JurosApp> {
             if (!wide) {
               return Column(
                 children: [
-                  Expanded(child: content),
-                  NavigationBar(
-                    selectedIndex: section,
-                    onDestinationSelected: (index) => setState(() => section = index),
-                    destinations: [
-                      for (final item in destinations)
-                        NavigationDestination(icon: Icon(item.$1), label: item.$2),
-                    ],
+                  Expanded(child: SafeArea(bottom: false, child: content)),
+                  _SectionBar(
+                    selected: section,
+                    destinations: destinations,
+                    onSelected: (index) => setState(() => section = index),
                   ),
                 ],
               );
@@ -107,6 +104,89 @@ class _JurosAppState extends State<JurosApp> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionBar extends StatefulWidget {
+  const _SectionBar({
+    required this.selected,
+    required this.destinations,
+    required this.onSelected,
+  });
+
+  final int selected;
+  final List<(IconData, String)> destinations;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_SectionBar> createState() => _SectionBarState();
+}
+
+class _SectionBarState extends State<_SectionBar> {
+  final scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(covariant _SectionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selected != widget.selected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => reveal());
+    }
+  }
+
+  @override
+  void dispose() {
+    scroll.dispose();
+    super.dispose();
+  }
+
+  void reveal() {
+    if (!scroll.hasClients) return;
+    final target = widget.selected * 88.0 - 24;
+    scroll.animateTo(
+      target.clamp(0, scroll.position.maxScrollExtent).toDouble(),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.sidebar,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: ListView.builder(
+            controller: scroll,
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.destinations.length,
+            itemBuilder: (context, index) {
+              final item = widget.destinations[index];
+              final selected = index == widget.selected;
+              final color = selected ? AppColors.green : AppColors.muted;
+              return InkWell(
+                onTap: () => widget.onSelected(index),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 76),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(item.$1, color: color, size: 22),
+                        const SizedBox(height: 4),
+                        Text(item.$2, style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
