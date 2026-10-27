@@ -8,6 +8,7 @@ import 'ui/clients_page.dart';
 import 'ui/collections_page.dart';
 import 'ui/dashboard_page.dart';
 import 'ui/loans_page.dart';
+import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
 import 'ui/reports_page.dart';
 import 'ui/settings_page.dart';
@@ -80,19 +81,6 @@ class _JurosAppState extends State<JurosApp> {
     });
   }
 
-  Future<void> changePassword() async {
-    final current = user;
-    if (current == null) return;
-    final next = await askPassword(context, 'Nova senha');
-    if (next == null || !mounted) return;
-    try {
-      await auth.setPassword(token, current.id, next);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha atualizada.')));
-    } on AuthException catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
-    }
-  }
-
   List<(IconData, String, int)> destinationsFor(SessionUser current) {
     return [
       (Icons.space_dashboard_outlined, 'Dashboard', 0),
@@ -109,9 +97,22 @@ class _JurosAppState extends State<JurosApp> {
     ];
   }
 
-  Widget page(SessionUser current) {
+  int visibleSection(SessionUser current) {
+    if (section == 9) return 9;
     final allowed = destinationsFor(current).any((item) => item.$3 == section);
-    final currentSection = allowed ? section : 0;
+    return allowed ? section : 0;
+  }
+
+  Widget page(SessionUser current) {
+    final currentSection = visibleSection(current);
+    if (currentSection == 9) {
+      return ProfilePage(
+        auth: auth,
+        token: token,
+        user: current,
+        onUpdated: (next) => setState(() => user = next),
+      );
+    }
     return switch (currentSection) {
       0 => DashboardPage(repo: widget.repo),
       1 => CollectionsPage(repo: widget.repo),
@@ -120,7 +121,7 @@ class _JurosAppState extends State<JurosApp> {
       4 => CashPage(repo: widget.repo),
       5 => ReportsPage(repo: widget.repo),
       6 => TrashPage(repo: widget.repo),
-      8 => UsersPage(auth: auth, token: token),
+      8 => UsersPage(auth: auth, token: token, selfId: current.id),
       _ => SettingsPage(repo: widget.repo, onChanged: reloadScale),
     };
   }
@@ -144,11 +145,11 @@ class _JurosAppState extends State<JurosApp> {
               ? LoginPage(auth: auth, onSuccess: enter)
               : _Shell(
                   user: current,
-                  section: destinationsFor(current).any((item) => item.$3 == section) ? section : 0,
+                  section: visibleSection(current),
                   destinations: destinationsFor(current),
                   onSelected: (id) => setState(() => section = id),
+                  onProfile: () => setState(() => section = 9),
                   onLogout: leave,
-                  onPassword: changePassword,
                   child: page(current),
                 ),
     );
@@ -161,8 +162,8 @@ class _Shell extends StatelessWidget {
     required this.section,
     required this.destinations,
     required this.onSelected,
+    required this.onProfile,
     required this.onLogout,
-    required this.onPassword,
     required this.child,
   });
 
@@ -170,8 +171,8 @@ class _Shell extends StatelessWidget {
   final int section;
   final List<(IconData, String, int)> destinations;
   final ValueChanged<int> onSelected;
+  final VoidCallback onProfile;
   final VoidCallback onLogout;
-  final VoidCallback onPassword;
   final Widget child;
 
   @override
@@ -182,7 +183,7 @@ class _Shell extends StatelessWidget {
           final wide = constraints.maxWidth >= 900;
           final page = Column(
             children: [
-              _AccountBar(user: user, onPassword: onPassword, onLogout: onLogout),
+              _AccountBar(user: user, profileOpen: section == 9, onProfile: onProfile, onLogout: onLogout),
               Expanded(child: child),
             ],
           );
@@ -205,7 +206,7 @@ class _Shell extends StatelessWidget {
               NavigationRail(
                 backgroundColor: AppColors.sidebar,
                 extended: extended,
-                selectedIndex: navIndex < 0 ? 0 : navIndex,
+                selectedIndex: navIndex < 0 ? null : navIndex,
                 onDestinationSelected: (index) => onSelected(destinations[index].$3),
                 labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
                 leading: Padding(
@@ -236,12 +237,14 @@ class _Shell extends StatelessWidget {
 class _AccountBar extends StatelessWidget {
   const _AccountBar({
     required this.user,
-    required this.onPassword,
+    required this.profileOpen,
+    required this.onProfile,
     required this.onLogout,
   });
 
   final SessionUser user;
-  final VoidCallback onPassword;
+  final bool profileOpen;
+  final VoidCallback onProfile;
   final VoidCallback onLogout;
 
   @override
@@ -271,7 +274,13 @@ class _AccountBar extends StatelessWidget {
               spacing: 4,
               runSpacing: 4,
               children: [
-                TextButton(onPressed: onPassword, child: const Text('Trocar senha')),
+                TextButton(
+                  onPressed: onProfile,
+                  child: Text(
+                    'Perfil',
+                    style: TextStyle(fontWeight: profileOpen ? FontWeight.w700 : null),
+                  ),
+                ),
                 TextButton(onPressed: onLogout, child: const Text('Sair')),
               ],
             );

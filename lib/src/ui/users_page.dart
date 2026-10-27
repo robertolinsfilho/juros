@@ -5,10 +5,11 @@ import '../theme.dart';
 import 'widgets.dart';
 
 class UsersPage extends StatefulWidget {
-  const UsersPage({super.key, required this.auth, required this.token});
+  const UsersPage({super.key, required this.auth, required this.token, required this.selfId});
 
   final AuthApi auth;
   final String token;
+  final int selfId;
 
   @override
   State<UsersPage> createState() => _UsersPageState();
@@ -93,7 +94,7 @@ class _UsersPageState extends State<UsersPage> {
                           onPressed: () => role(user),
                           child: Text(user.isAdmin ? 'Tornar comum' : 'Tornar admin'),
                         ),
-                        TextButton(onPressed: () => password(user), child: const Text('Senha')),
+                        if (user.id != widget.selfId) TextButton(onPressed: () => password(user), child: const Text('Senha')),
                         TextButton(
                           onPressed: () => toggle(user),
                           child: Text(user.active ? 'Desativar' : 'Reativar'),

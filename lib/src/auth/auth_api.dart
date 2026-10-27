@@ -100,8 +100,16 @@ class AuthApi {
     await _send('POST', '/api/users/$id/active', token: token, body: {'active': active});
   }
 
-  Future<void> setPassword(String token, int id, String password) async {
-    await _send('POST', '/api/users/$id/password', token: token, body: {'password': password});
+  Future<SessionUser> updateProfile(String token, {required String name}) async {
+    final json = await _send('POST', '/api/me', token: token, body: {'name': name});
+    return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> setPassword(String token, int id, String password, {String? current}) async {
+    await _send('POST', '/api/users/$id/password', token: token, body: {
+      'password': password,
+      'current': ?current,
+    });
   }
 
   Future<Map<String, dynamic>> _send(

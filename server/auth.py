@@ -158,8 +158,11 @@ class Handler(BaseHTTPRequestHandler):
                 conn.commit()
                 self._send(200, {"ok": True})
                 return
-            if method == "GET" and path == "/api/me":
+            if path == "/api/me" and method == "GET":
                 self._send(200, {"user": public_user(actor)})
+                return
+            if path == "/api/me" and method == "POST":
+                self._update_profile(conn, actor, data)
                 return
             if path == "/api/users" and method == "GET":
                 self._list_users(conn, actor)
@@ -298,6 +301,19 @@ class Handler(BaseHTTPRequestHandler):
         conn.commit()
         self._send(200, {"ok": True})
 
+    def _update_profile(self, conn, actor, data):
+        name = str(data.get("name", "")).strip()
+        if not name or len(name) > 80:
+            self._send(400, {"error": "Informe o nome."})
+            return
+        conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, actor["id"]))
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, username, name, role, active FROM users WHERE id = ?",
+            (actor["id"],),
+        ).fetchone()
+        self._send(200, {"user": public_user(row)})
+
     def _set_password(self, conn, actor, user_id, data):
         if actor["id"] != user_id and actor["role"] != "admin":
             self._send(403, {"error": "Só um administrador pode alterar a senha de outra pessoa."})
@@ -306,9 +322,12 @@ class Handler(BaseHTTPRequestHandler):
         if len(password) < 6:
             self._send(400, {"error": "A senha precisa ter pelo menos 6 caracteres."})
             return
-        row = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute("SELECT id, salt, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
         if row is None:
             self._send(404, {"error": "Usuário não encontrado."})
+            return
+        if actor["id"] == user_id and not password_ok(str(data.get("current", "")), row["salt"], row["password_hash"]):
+            self._send(400, {"error": "Senha atual incorreta."})
             return
         salt, digest = hash_password(password)
         conn.execute("UPDATE users SET salt = ?, password_hash = ? WHERE id = ?", (salt, digest, user_id))
