@@ -180,17 +180,20 @@ class _Shell extends StatelessWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= 900;
+          final page = Column(
+            children: [
+              _AccountBar(user: user, onPassword: onPassword, onLogout: onLogout),
+              Expanded(child: child),
+            ],
+          );
           if (!wide) {
             return Column(
               children: [
-                Expanded(child: SafeArea(bottom: false, child: child)),
+                Expanded(child: SafeArea(bottom: false, child: page)),
                 _SectionBar(
                   selected: section,
                   destinations: destinations,
-                  accountLabel: '${user.name} · ${user.roleLabel}',
                   onSelected: onSelected,
-                  onLogout: onLogout,
-                  onPassword: onPassword,
                 ),
               ],
             );
@@ -215,37 +218,80 @@ class _Shell extends StatelessWidget {
                     ),
                   ),
                 ),
-                trailing: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-                  child: extended
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text(user.roleLabel, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                            TextButton(onPressed: onPassword, child: const Text('Trocar senha')),
-                            TextButton(onPressed: onLogout, child: const Text('Sair')),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(tooltip: 'Trocar senha', onPressed: onPassword, icon: const Icon(Icons.key_outlined)),
-                            IconButton(tooltip: 'Sair', onPressed: onLogout, icon: const Icon(Icons.logout)),
-                          ],
-                        ),
-                ),
                 destinations: [
                   for (final item in destinations)
                     NavigationRailDestination(icon: Icon(item.$1), label: Text(item.$2)),
                 ],
               ),
               const VerticalDivider(width: 1),
-              Expanded(child: child),
+              Expanded(child: page),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _AccountBar extends StatelessWidget {
+  const _AccountBar({
+    required this.user,
+    required this.onPassword,
+    required this.onLogout,
+  });
+
+  final SessionUser user;
+  final VoidCallback onPassword;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.sidebar,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final identity = Row(
+              children: [
+                const Icon(Icons.account_circle_outlined, color: AppColors.green, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(user.roleLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            );
+            final actions = Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                TextButton(onPressed: onPassword, child: const Text('Trocar senha')),
+                TextButton(onPressed: onLogout, child: const Text('Sair')),
+              ],
+            );
+            if (constraints.maxWidth < 560) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  identity,
+                  actions,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: identity),
+                actions,
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -255,18 +301,12 @@ class _SectionBar extends StatelessWidget {
   const _SectionBar({
     required this.selected,
     required this.destinations,
-    required this.accountLabel,
     required this.onSelected,
-    required this.onLogout,
-    required this.onPassword,
   });
 
   final int selected;
   final List<(IconData, String, int)> destinations;
-  final String accountLabel;
   final ValueChanged<int> onSelected;
-  final VoidCallback onLogout;
-  final VoidCallback onPassword;
 
   static const primary = [0, 1, 2, 3];
 
@@ -314,13 +354,9 @@ class _SectionBar extends StatelessWidget {
           backgroundColor: AppColors.card,
           builder: (sheetContext) {
             return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: ListView(
+                shrinkWrap: true,
                 children: [
-                  ListTile(
-                    title: Text(accountLabel),
-                    subtitle: const Text('Conta'),
-                  ),
                   for (var index = primary.length; index < destinations.length; index++)
                     ListTile(
                       leading: Icon(
@@ -334,22 +370,6 @@ class _SectionBar extends StatelessWidget {
                         onSelected(destinations[index].$3);
                       },
                     ),
-                  ListTile(
-                    leading: const Icon(Icons.key_outlined),
-                    title: const Text('Trocar senha'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      onPassword();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Sair'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      onLogout();
-                    },
-                  ),
                 ],
               ),
             );
