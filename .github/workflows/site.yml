@@ -17,6 +17,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Análise e testes
+        run: |
+          flutter analyze --no-fatal-infos
+          flutter test
       - run: flutter build web --release
       - name: Publica o site
         run: |
