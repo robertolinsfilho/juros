@@ -8,6 +8,7 @@ import 'ui/cash_page.dart';
 import 'ui/clients_page.dart';
 import 'ui/collections_page.dart';
 import 'ui/dashboard_page.dart';
+import 'ui/landing_page.dart';
 import 'ui/loans_page.dart';
 import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
@@ -34,6 +35,7 @@ class _JurosAppState extends State<JurosApp> {
   SessionUser? user;
   String token = '';
   bool checking = true;
+  bool showLogin = false;
 
   @override
   void initState() {
@@ -88,6 +90,7 @@ class _JurosAppState extends State<JurosApp> {
       user = null;
       token = '';
       section = 0;
+      showLogin = false;
       scale = widget.repo.fontScale;
     });
   }
@@ -151,7 +154,9 @@ class _JurosAppState extends State<JurosApp> {
       home: checking
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : current == null
-              ? LoginPage(auth: auth, onSuccess: enter)
+              ? (showLogin
+                  ? LoginPage(auth: auth, onSuccess: enter, onBack: () => setState(() => showLogin = false))
+                  : LandingPage(onEnter: () => setState(() => showLogin = true)))
               : _Shell(
                   user: current,
                   section: visibleSection(current),

@@ -5,9 +5,10 @@ import '../theme.dart';
 import 'widgets.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.auth, required this.onSuccess});
+  const LoginPage({super.key, required this.auth, required this.onSuccess, this.onBack});
 
   final AuthApi auth;
+  final VoidCallback? onBack;
   final void Function(SessionUser user, String token) onSuccess;
 
   @override
@@ -56,6 +57,15 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (widget.onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: widget.onBack,
+                        icon: const Icon(Icons.arrow_back, size: 16),
+                        label: const Text('Voltar ao início'),
+                      ),
+                    ),
                   const Text(
                     'Juros',
                     textAlign: TextAlign.center,
