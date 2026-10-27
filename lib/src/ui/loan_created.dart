@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
 import '../links.dart';
+import '../messages/builders.dart';
 import '../theme.dart';
 import 'widgets.dart';
 
@@ -40,6 +41,7 @@ class LoanSummary {
     required this.thirdValue,
     required this.totalCents,
     required this.rows,
+    required this.message,
   });
 
   factory LoanSummary.load(Repo repo, int loanId) {
@@ -47,6 +49,7 @@ class LoanSummary {
     final installments = repo.installmentsOf(loanId);
     final interestOnly = loan.contractMode == ContractMode.apenasJuros.code;
     final frequency = FrequencyLabel.parse(loan.frequency);
+    final message = MessageBuilder(repo).registered(loanId);
     if (interestOnly) {
       final interestRows = [for (final item in installments) if (item.principalCents == 0) item];
       final first = interestRows.isEmpty ? null : interestRows.first;
@@ -63,6 +66,7 @@ class LoanSummary {
         rows: [
           for (final item in interestRows) LoanSummaryRow('Juros ${item.number}', item.dueDate, item.faceCents),
         ],
+        message: message,
       );
     }
     final total = installments.fold<int>(0, (sum, item) => sum + item.faceCents);
@@ -80,6 +84,7 @@ class LoanSummary {
       rows: [
         for (final item in installments) LoanSummaryRow('Parc. ${item.number}', item.dueDate, item.faceCents),
       ],
+      message: message,
     );
   }
 
@@ -93,77 +98,26 @@ class LoanSummary {
   final String thirdValue;
   final int totalCents;
   final List<LoanSummaryRow> rows;
-
-  String text({required String creditor, required String pix}) {
-    final buffer = StringBuffer()
-      ..writeln('*Empréstimo registrado* ✅')
-      ..writeln()
-      ..writeln('Olá, $clientName! Seu contrato foi registrado.')
-      ..writeln()
-      ..writeln('💰 Valor emprestado: *${fmtMoney(principalCents)}*');
-    if (interestOnly) {
-      buffer
-        ..writeln('📈 $secondLabel: *$secondValue*')
-        ..writeln('🏁 Capital a devolver no final: *${fmtMoney(principalCents)}*');
-    } else {
-      buffer
-        ..writeln('📋 Parcelas: *$secondValue*')
-        ..writeln('🧾 Total a pagar: *$thirdValue*');
-    }
-    if (rows.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln('📅 *Vencimentos*');
-      for (final row in rows) {
-        buffer.writeln('${_numberMark(row.label)} ${fmtDateIso(row.dueIso)} — ${fmtMoney(row.cents)}');
-      }
-    }
-    if (pix.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln('💳 PIX: $pix');
-    }
-    if (creditor.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..write(creditor);
-    }
-    return buffer.toString().trimRight();
-  }
-
-  static String _numberMark(String label) {
-    final digits = RegExp(r'\d+').firstMatch(label)?.group(0);
-    final number = int.tryParse(digits ?? '');
-    if (number == null) return '•';
-    if (number >= 1 && number <= 9) return '$number\uFE0F\u20E3';
-    if (number == 10) return '🔟';
-    return '$number.';
-  }
+  final String message;
 }
 
 Future<void> showLoanCreated(BuildContext context, Repo repo, int loanId) {
   final summary = LoanSummary.load(repo, loanId);
   return showDialog<void>(
     context: context,
-    builder: (context) => _LoanCreatedDialog(
-      summary: summary,
-      creditor: repo.setting('creditor_name'),
-      pix: repo.setting('pix_key'),
-    ),
+    builder: (context) => _LoanCreatedDialog(summary: summary),
   );
 }
 
 class _LoanCreatedDialog extends StatelessWidget {
-  const _LoanCreatedDialog({required this.summary, required this.creditor, required this.pix});
+  const _LoanCreatedDialog({required this.summary});
 
   final LoanSummary summary;
-  final String creditor;
-  final String pix;
 
   Future<void> sendWhatsApp(BuildContext context) async {
     final opened = await openWhatsApp(
       phone: summary.phone,
-      message: summary.text(creditor: creditor, pix: pix),
+      message: summary.message,
     );
     if (!opened && context.mounted) {
       showError(context, 'Cliente sem telefone válido. Cadastre o WhatsApp do cliente.');
@@ -171,7 +125,7 @@ class _LoanCreatedDialog extends StatelessWidget {
   }
 
   Future<void> copy(BuildContext context) async {
-    final plain = summary.text(creditor: creditor, pix: pix).replaceAll('*', '').replaceAll('_', '');
+    final plain = summary.message.replaceAll('*', '').replaceAll('_', '');
     await Clipboard.setData(ClipboardData(text: plain));
     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Resumo copiado!')));
   }

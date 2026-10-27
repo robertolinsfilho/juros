@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:juros/src/data/repository.dart';
 import 'package:juros/src/domain/schedule.dart';
-import 'package:juros/src/links.dart';
 import 'package:juros/src/theme.dart';
 import 'package:juros/src/ui/loan_created.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -67,10 +66,10 @@ void main() {
     expect(find.text('Copiar Resumo'), findsOneWidget);
 
     final summary = LoanSummary.load(repo, loanId);
-    final text = summary.text(creditor: 'Roberto', pix: 'chave-pix');
-    expect(text, contains('Capital a devolver no final'));
-    expect(text, contains('1️⃣ 27/11/2026'));
-    expect(text, contains('PIX: chave-pix'));
+    final text = summary.message;
+    expect(text, contains('Roberto Lins'));
+    expect(text, contains('27/11/2026'));
+    expect(text, isNot(contains('{{')));
   });
 
   test('parcelado lista parcelas e total', () {
@@ -79,16 +78,5 @@ void main() {
     expect(summary.rows.length, 3);
     expect(summary.secondLabel, 'Parcelas');
     expect(summary.thirdLabel, 'Total a pagar');
-  });
-
-  test('texto de cobrança muda conforme a situação', () {
-    final loanId = repo.createLoan(draft(clientId, ContractMode.amortizacao, count: 2));
-    final item = repo.installmentsOf(loanId).first;
-    final antes = chargeMessage(item, creditor: 'Roberto', pix: 'k', today: DateTime(2026, 11, 20));
-    final hoje = chargeMessage(item, creditor: 'Roberto', pix: 'k', today: DateTime(2026, 11, 27));
-    final atraso = chargeMessage(item, creditor: 'Roberto', pix: 'k', today: DateTime(2026, 12, 2));
-    expect(antes, contains('vence em 7 dias'));
-    expect(hoje, contains('Hoje vence a parcela 1/2'));
-    expect(atraso, contains('em atraso há 5 dias'));
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/repository.dart';
 import '../format.dart';
 import '../links.dart';
+import '../messages/builders.dart';
 import '../theme.dart';
 import 'client_form.dart';
 import 'loan_form.dart';
@@ -33,11 +34,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> charge(InstallmentRecord item) async {
     final opened = await openWhatsApp(
       phone: item.clientPhone,
-      message: chargeMessage(
-        item,
-        creditor: widget.repo.setting('creditor_name'),
-        pix: widget.repo.setting('pix_key'),
-      ),
+      message: MessageBuilder(widget.repo).charge(item),
     );
     if (!opened && mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
   }

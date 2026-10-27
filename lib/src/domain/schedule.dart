@@ -103,8 +103,10 @@ class LoanDraft {
     this.chargeFrequency,
     this.dueOverrides = const {},
     this.amountOverrides = const {},
+    this.pixKey = '',
   });
 
+  final String pixKey;
   final int clientId;
   final int principalCents;
   final int rateBps;

@@ -2,36 +2,73 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/repository.dart';
+import '../theme.dart';
+import 'messages_tab.dart';
 import 'widgets.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key, required this.repo, required this.onChanged});
+  const SettingsPage({super.key, required this.repo, required this.onChanged, this.initialTab = 0});
 
   final Repo repo;
   final VoidCallback onChanged;
+  final int initialTab;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late final creditor = TextEditingController(text: widget.repo.setting('creditor_name'));
-  late final pix = TextEditingController(text: widget.repo.setting('pix_key'));
+  late int tab = widget.initialTab;
   late double scale = widget.repo.fontScale;
 
-  @override
-  void dispose() {
-    creditor.dispose();
-    pix.dispose();
-    super.dispose();
+  void setScale(double value) {
+    setState(() => scale = value);
+    widget.repo.setSetting('font_scale', '$value');
+    widget.onChanged();
   }
 
-  void save() {
-    widget.repo.setSetting('creditor_name', creditor.text.trim());
-    widget.repo.setSetting('pix_key', pix.text.trim());
-    widget.repo.setSetting('font_scale', '$scale');
-    widget.onChanged();
-    showError(context, 'Configurações salvas.');
+  Widget scaleCard() {
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Tamanho da letra', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final item in const [(1.0, 'Normal'), (1.15, 'Grande'), (1.35, 'Muito grande')])
+                ChoiceChip(
+                  label: Text(item.$2),
+                  selected: scale == item.$1,
+                  onSelected: (_) => setScale(item.$1),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget dataTab() {
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Os dados dos empréstimos ficam só neste navegador.'),
+          const SizedBox(height: 8),
+          SelectableText(widget.repo.dbPath),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: widget.repo.dbPath));
+              showError(context, 'Caminho copiado.');
+            },
+            child: const Text('Copiar caminho'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -41,47 +78,22 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         const PageHeader(
           title: 'Configurações',
-          subtitle: 'Nome, PIX e tamanho da letra',
+          subtitle: 'Mensagens de WhatsApp, assinatura e tamanho da letra',
         ),
         const SizedBox(height: 16),
-        TextField(controller: creditor, decoration: const InputDecoration(labelText: 'Seu nome nas cobranças')),
-        const SizedBox(height: 12),
-        TextField(controller: pix, decoration: const InputDecoration(labelText: 'Chave PIX')),
+        scaleCard(),
         const SizedBox(height: 16),
-        const Text('Tamanho da letra'),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final item in const [(1.0, 'Normal'), (1.15, 'Grande'), (1.35, 'Muito grande')])
-              ChoiceChip(
-                label: Text(item.$2),
-                selected: scale == item.$1,
-                onSelected: (_) => setState(() => scale = item.$1),
-              ),
+        SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(value: 0, label: Text('Mensagens'), icon: Icon(Icons.chat_bubble_outline)),
+            ButtonSegment(value: 1, label: Text('Dados'), icon: Icon(Icons.storage_outlined)),
           ],
+          selected: {tab},
+          onSelectionChanged: (value) => setState(() => tab = value.first),
+          style: ButtonStyle(foregroundColor: WidgetStatePropertyAll(AppColors.text)),
         ),
         const SizedBox(height: 16),
-        FilledButton(onPressed: save, child: const Text('Salvar')),
-        const SizedBox(height: 24),
-        Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Os dados ficam só neste navegador.'),
-              const SizedBox(height: 8),
-              SelectableText(widget.repo.dbPath),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: widget.repo.dbPath));
-                  showError(context, 'Caminho copiado.');
-                },
-                child: const Text('Copiar caminho'),
-              ),
-            ],
-          ),
-        ),
+        if (tab == 0) MessagesTab(repo: widget.repo, onChanged: widget.onChanged) else dataTab(),
       ],
     );
   }

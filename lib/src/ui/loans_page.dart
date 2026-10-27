@@ -4,7 +4,9 @@ import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
 import '../links.dart';
+import '../messages/builders.dart';
 import 'loan_edit.dart';
+import 'message_dialog.dart';
 import 'loan_form.dart';
 import 'widgets.dart';
 
@@ -192,16 +194,22 @@ class _LoanDetail extends StatelessWidget {
     if (!ok) return;
     repo.payInstallment(item.id);
     onChanged();
+    if (context.mounted) await offerPaymentMessage(context, repo, item);
+  }
+
+  Future<void> sendStatus(BuildContext context) async {
+    await showMessageDialog(
+      context,
+      title: 'Situação do contrato',
+      text: MessageBuilder(repo).status(loan.id),
+      phone: loan.clientPhone,
+    );
   }
 
   Future<void> charge(BuildContext context, InstallmentRecord item) async {
     final opened = await openWhatsApp(
       phone: item.clientPhone,
-      message: chargeMessage(
-        item,
-        creditor: repo.setting('creditor_name'),
-        pix: repo.setting('pix_key'),
-      ),
+      message: MessageBuilder(repo).charge(item),
     );
     if (!opened && context.mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
   }
@@ -237,6 +245,7 @@ class _LoanDetail extends StatelessWidget {
           actions: [
             OutlinedButton(onPressed: onBack, child: const Text('Voltar')),
             if (loan.status == 'aberto') OutlinedButton(onPressed: () => lose(context), child: const Text('Marcar perdido')),
+            OutlinedButton(onPressed: () => sendStatus(context), child: const Text('Enviar situação')),
             OutlinedButton(onPressed: () => edit(context), child: const Text('Editar')),
             OutlinedButton(onPressed: () => remove(context), child: const Text('Excluir')),
           ],

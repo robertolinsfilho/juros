@@ -4,6 +4,7 @@ import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
 import 'client_form.dart';
+import '../messages/templates.dart';
 import 'loan_created.dart';
 import 'widgets.dart';
 
@@ -41,6 +42,7 @@ class _LoanDialogState extends State<_LoanDialog> {
   final lateDaily = TextEditingController();
   final lateFixed = TextEditingController();
   final notes = TextEditingController();
+  String pixChoice = '';
   final rowAmounts = <int, TextEditingController>{};
   ContractMode contractMode = ContractMode.amortizacao;
   RateMode rateMode = RateMode.porParcela;
@@ -139,6 +141,7 @@ class _LoanDialogState extends State<_LoanDialog> {
       lateDailyCents: parseMoney(lateDaily.text) ?? 0,
       lateFixedCents: parseMoney(lateFixed.text) ?? 0,
       notes: notes.text,
+      pixKey: pixChoice,
       skipWeekdays: skipWeekdays,
       fixedInstallment: interestPlusCapital && fixedInstallment,
       openInterest: interestPlusCapital,
@@ -554,6 +557,20 @@ class _LoanDialogState extends State<_LoanDialog> {
               if (lateMode == 'taxa_unica_percentual') ...[
                 const SizedBox(height: 12),
                 TextField(controller: lateFixed, decoration: const InputDecoration(labelText: 'Taxa única'), keyboardType: TextInputType.number),
+              ],
+              if (MessageConfig(widget.repo).pixKeys.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: pixChoice,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Chave PIX na mensagem'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('Chave padrão')),
+                    for (final entry in MessageConfig(widget.repo).pixKeys)
+                      DropdownMenuItem(value: entry.key, child: Text(entry.title, overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (value) => setState(() => pixChoice = value ?? ''),
+                ),
               ],
               const SizedBox(height: 12),
               TextField(

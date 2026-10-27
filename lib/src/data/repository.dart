@@ -59,8 +59,10 @@ class LoanRecord {
     required this.nextDue,
     required this.openCents,
     required this.deletedAt,
+    this.pixKey = '',
   });
 
+  final String pixKey;
   final int id;
   final int clientId;
   final String clientName;
@@ -359,6 +361,7 @@ class Repo {
     _addColumn('loans', 'skip_weekdays', 'INTEGER NOT NULL DEFAULT 0');
     _addColumn('loans', 'fixed_installment', 'INTEGER NOT NULL DEFAULT 0');
     _addColumn('loans', 'charge_frequency', "TEXT NOT NULL DEFAULT ''");
+    _addColumn('loans', 'pix_key', "TEXT NOT NULL DEFAULT ''");
   }
 
   void _addColumn(String table, String name, String definition) {
@@ -598,8 +601,8 @@ class Repo {
           client_id, principal_cents, rate_bps, rate_mode, contract_mode, frequency,
           interval_days, installment_count, contract_date, skip_saturday, skip_sunday,
           skip_holiday, late_mode, late_percent_bps, late_daily_cents, late_fixed_cents,
-          notes, status, created_at, skip_weekdays, fixed_installment, charge_frequency
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?)
+          notes, status, created_at, skip_weekdays, fixed_installment, charge_frequency, pix_key
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?, ?)
         ''',
         [
           draft.clientId,
@@ -623,6 +626,7 @@ class Repo {
           draft.skipWeekdays,
           draft.fixedInstallment ? 1 : 0,
           draft.chargeFrequency?.code ?? '',
+          draft.pixKey,
         ],
       );
       final id = db.lastInsertRowId;
@@ -808,7 +812,27 @@ class Repo {
       skipWeekdays: row['skip_weekdays'] as int,
       fixedInstallment: (row['fixed_installment'] as int) == 1,
       chargeFrequency: charge.isEmpty ? null : FrequencyLabel.parse(charge),
+      pixKey: (row['pix_key'] as String?) ?? '',
     );
+  }
+
+  /// Parcelas vencidas e em aberto de todos os contratos do cliente.
+  List<InstallmentRecord> overdueOfClient(int clientId, [DateTime? today]) {
+    final day = isoDate(today ?? DateTime.now());
+    final rows = db.select(
+      '''
+      SELECT i.*, l.installment_count AS count, l.late_mode, l.late_percent_bps,
+             l.late_daily_cents, l.late_fixed_cents, c.name AS client_name, c.phone AS client_phone
+      FROM installments i
+      JOIN loans l ON l.id = i.loan_id
+      JOIN clients c ON c.id = l.client_id
+      WHERE l.client_id = ? AND l.deleted_at IS NULL AND l.status = 'aberto'
+        AND i.paid_at IS NULL AND i.status = 'aberta' AND i.due_date < ?
+      ORDER BY i.loan_id, i.due_date
+      ''',
+      [clientId, day],
+    );
+    return [for (final row in rows) _installment(row)];
   }
 
   /// Atualiza um contrato. Com [rebuild], valor, taxa, prazo e datas são
@@ -1315,6 +1339,7 @@ class Repo {
       nextDue: row['next_due'] as String?,
       openCents: (row['open_cents'] as int?) ?? 0,
       deletedAt: row['deleted_at'] as String?,
+      pixKey: (row['pix_key'] as String?) ?? '',
     );
   }
 
