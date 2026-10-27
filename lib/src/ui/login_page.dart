@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_api.dart';
 import '../theme.dart';
+import 'brand.dart';
 import 'widgets.dart';
 
 class LoginPage extends StatefulWidget {
@@ -66,11 +67,7 @@ class _LoginPageState extends State<LoginPage> {
                         label: const Text('Voltar ao início'),
                       ),
                     ),
-                  const Text(
-                    'Juros',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: AppColors.green),
-                  ),
+                  const Center(child: BrandLockup(width: 260)),
                   const SizedBox(height: 8),
                   const Text(
                     'Controle de empréstimos, parcelas e recebimentos.',

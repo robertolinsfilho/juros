@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'brand.dart';
 
 const _maxWidth = 1040.0;
 
@@ -106,22 +107,7 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: const LinearGradient(colors: [AppColors.green, Color(0xFF1FA874)]),
-          ),
-          child: const Icon(Icons.trending_up, size: 20, color: AppColors.greenInk),
-        ),
-        const SizedBox(width: 10),
-        const Text('Juros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      ],
-    );
+    return const BrandName(size: 30);
   }
 }
 
@@ -250,7 +236,7 @@ class _Hero extends StatelessWidget {
             style: TextStyle(fontSize: wide ? 56 : 40, fontWeight: FontWeight.w800, height: 1.05, letterSpacing: -1.2),
             children: const [
               TextSpan(text: 'Chega de caderno.\n'),
-              TextSpan(text: 'O Juros lembra por você.', style: TextStyle(color: AppColors.green)),
+              TextSpan(text: 'O Acertaí lembra por você.', style: TextStyle(color: AppColors.lime)),
             ],
           ),
         ),
@@ -573,7 +559,7 @@ class _Highlight extends StatelessWidget {
         const _Title('Abriu o sistema, já sabe quem está devendo', center: false),
         const SizedBox(height: 16),
         const Text(
-          'O descuido mais caro de quem empresta é deixar uma parcela passar. O Juros mostra, todo dia, '
+          'O descuido mais caro de quem empresta é deixar uma parcela passar. O Acertaí mostra, todo dia, '
           'o que venceu e o que vence logo, sem depender da sua memória.',
           style: TextStyle(color: AppColors.muted, fontSize: 16, height: 1.5),
         ),
@@ -722,7 +708,7 @@ class _Compare extends StatelessWidget {
       'Cobrança de cabeça, cliente por cliente',
       'Juros calculados na mão, com risco de erro',
     ], good: false);
-    final now = column('Com o Juros', const [
+    final now = column('Com o Acertaí', const [
       'Clientes e contratos num lugar só',
       'Vencimentos de hoje e da semana sempre à vista',
       'Cobrança no WhatsApp com poucos toques',
@@ -1149,7 +1135,7 @@ class _Footer extends StatelessWidget {
             children: [
               const _Logo(),
               Text(
-                '© ${math.max(2026, DateTime.now().year)} Juros. Todos os direitos reservados.',
+                '© ${math.max(2026, DateTime.now().year)} Acertaí Finanças. Todos os direitos reservados.',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ],

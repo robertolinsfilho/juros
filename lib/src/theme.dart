@@ -1,18 +1,35 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const bg = Color(0xFF0E141B);
-  static const sidebar = Color(0xFF0B1016);
-  static const card = Color(0xFF171F2B);
-  static const cardAlt = Color(0xFF1C2633);
-  static const line = Color(0xFF2C3A4C);
-  static const text = Color(0xFFE7EDF5);
-  static const muted = Color(0xFF93A0B4);
-  static const green = Color(0xFF3DDC97);
-  static const greenInk = Color(0xFF06281C);
+  /// Fundo azul-marinho bem escuro, como o da logo.
+  static const bg = Color(0xFF060E18);
+  static const sidebar = Color(0xFF040B13);
+  static const card = Color(0xFF0F1B27);
+  static const cardAlt = Color(0xFF15222F);
+  static const line = Color(0xFF243543);
+  static const text = Color(0xFFEFF4F8);
+  static const muted = Color(0xFF95A5B6);
+
+  /// Verde do meio da letra da logo: cor principal dos botões e destaques.
+  static const green = Color(0xFF45CF6F);
+
+  /// Verde-limão do topo da seta e do pingo do "i".
+  static const lime = Color(0xFF97F151);
+
+  /// Verde-água da base da letra.
+  static const teal = Color(0xFF04AB9A);
+
+  static const greenInk = Color(0xFF04230F);
   static const red = Color(0xFFFF6B7D);
   static const amber = Color(0xFFF0B429);
   static const blue = Color(0xFF7EB6FF);
+
+  /// Degradê da marca, do verde-água ao verde-limão.
+  static const brandGradient = LinearGradient(
+    begin: Alignment.bottomLeft,
+    end: Alignment.topRight,
+    colors: [teal, green, lime],
+  );
 }
 
 ThemeData buildTheme() {
@@ -20,7 +37,7 @@ ThemeData buildTheme() {
     surface: AppColors.bg,
     primary: AppColors.green,
     onPrimary: AppColors.greenInk,
-    secondary: AppColors.blue,
+    secondary: AppColors.teal,
     error: AppColors.red,
     onSurface: AppColors.text,
   );
@@ -86,6 +103,14 @@ ThemeData buildTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: AppColors.green),
+    ),
+    chipTheme: const ChipThemeData(
+      backgroundColor: AppColors.cardAlt,
+      selectedColor: AppColors.green,
+      checkmarkColor: AppColors.greenInk,
+      side: BorderSide(color: AppColors.line),
+      labelStyle: TextStyle(color: AppColors.text),
+      secondaryLabelStyle: TextStyle(color: AppColors.greenInk, fontWeight: FontWeight.w700),
     ),
     scrollbarTheme: const ScrollbarThemeData(
       thumbVisibility: WidgetStatePropertyAll(true),

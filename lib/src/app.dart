@@ -9,6 +9,7 @@ import 'ui/clients_page.dart';
 import 'ui/collections_page.dart';
 import 'ui/dashboard_page.dart';
 import 'ui/landing_page.dart';
+import 'ui/brand.dart';
 import 'ui/loans_page.dart';
 import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
@@ -142,7 +143,7 @@ class _JurosAppState extends State<JurosApp> {
   Widget build(BuildContext context) {
     final current = user;
     return MaterialApp(
-      title: 'Juros',
+      title: brandName,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       builder: (context, child) {
@@ -227,10 +228,7 @@ class _Shell extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      extended ? 'Juros' : 'J',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.green),
-                    ),
+                    child: BrandName(size: 32, showName: extended),
                   ),
                 ),
                 destinations: [
