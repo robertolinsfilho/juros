@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+
+import '../auth/auth_api.dart';
+import '../theme.dart';
+import 'widgets.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key, required this.auth, required this.onSuccess});
+
+  final AuthApi auth;
+  final void Function(SessionUser user, String token) onSuccess;
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final username = TextEditingController();
+  final password = TextEditingController();
+  bool busy = false;
+  String? error;
+
+  @override
+  void dispose() {
+    username.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final result = await widget.auth.login(username.text, password.text);
+      if (!mounted) return;
+      widget.onSuccess(result.user, result.token);
+    } on AuthException catch (caught) {
+      if (mounted) setState(() => error = caught.message);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: pagePadding(context),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Juros',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: AppColors.green),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Controle de empréstimos, parcelas e recebimentos.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 28),
+                  Panel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Entrar', style: Theme.of(context).textTheme.headlineSmall),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Acesso apenas para usuários cadastrados.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: username,
+                          autofocus: true,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: const InputDecoration(labelText: 'Usuário'),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: password,
+                          obscureText: true,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => submit(),
+                          decoration: const InputDecoration(labelText: 'Senha'),
+                        ),
+                        if (error != null) ...[
+                          const SizedBox(height: 12),
+                          Text(error!, style: const TextStyle(color: AppColors.red)),
+                        ],
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: busy ? null : submit,
+                          child: Text(busy ? 'Entrando...' : 'Entrar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

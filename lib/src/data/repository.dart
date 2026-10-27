@@ -396,6 +396,10 @@ class Repo {
     return rows.first['value'] as String;
   }
 
+  void removeSetting(String key) {
+    db.execute('DELETE FROM settings WHERE key = ?', [key]);
+  }
+
   void setSetting(String key, String value) {
     db.execute(
       '''
