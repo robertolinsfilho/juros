@@ -121,7 +121,8 @@ class _LoansPageState extends State<LoansPage> {
               child: RecordTile(
                 onTap: () => setState(() => selected = loan.id),
                 title: loan.clientName,
-                subtitle: '${loan.typeLabel}\n${fmtMoney(loan.principalCents)} · ${fmtRate(loan.rateBps)} · ${loan.count} parcelas'
+                subtitle: '${loan.typeLabel}\n${fmtMoney(loan.principalCents)} · ${fmtRate(loan.rateBps)}'
+                    '${loan.contractMode == 'apenas_juros' ? '' : ' · ${loan.count} parcelas'}'
                     '${showNotes && loan.notes.isNotEmpty ? '\n${loan.notes}' : ''}',
                 actions: [
                   StatusPill(label: loan.displayStatus),
@@ -212,7 +213,11 @@ class _LoanDetail extends StatelessWidget {
         const SizedBox(height: 16),
         metricGrid([
           MetricCard(label: 'EMPRESTADO', value: fmtMoney(loan.principalCents), caption: fmtDateIso(loan.contractDate)),
-          MetricCard(label: 'EM ABERTO', value: fmtMoney(loan.openCents), caption: '${loan.count} parcelas'),
+          MetricCard(
+            label: 'EM ABERTO',
+            value: fmtMoney(loan.openCents),
+            caption: loan.contractMode == 'apenas_juros' ? 'no vencimento' : '${loan.count} parcelas',
+          ),
           MetricCard(label: 'STATUS', value: loan.displayStatus, caption: loan.notes.isEmpty ? 'sem observação' : loan.notes),
         ]),
         const SizedBox(height: 12),
@@ -222,7 +227,9 @@ class _LoanDetail extends StatelessWidget {
             children: [
               for (final item in items)
                 RecordTile(
-                  title: 'Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}',
+                  title: loan.contractMode == 'apenas_juros'
+                      ? 'Vencimento · ${fmtDateIso(item.dueDate)}'
+                      : 'Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}',
                   subtitle: 'Capital ${fmtMoney(item.principalCents)} · juros ${fmtMoney(item.interestCents)}'
                       '${item.isOpen && item.liveLateCents(DateTime.now()) > 0 ? ' · mora ${fmtMoney(item.liveLateCents(DateTime.now()))}' : ''}'
                       '${item.paidAt != null ? ' · pago em ${fmtDateIso(item.paidAt!)}' : ''}',

@@ -56,10 +56,12 @@ class _LoanDialogState extends State<_LoanDialog> {
     super.dispose();
   }
 
+  bool get interestPlusCapital => contractMode == ContractMode.apenasJuros;
+
   LoanDraft? draft() {
     final value = parseMoney(principal.text);
     final rateBps = parsePercentBps(rate.text);
-    final installments = int.tryParse(count.text.trim());
+    final installments = interestPlusCapital ? 1 : int.tryParse(count.text.trim());
     final every = int.tryParse(interval.text.trim()) ?? 1;
     if (clientId == null || value == null || value <= 0 || rateBps == null || installments == null || installments < 1) {
       return null;
@@ -68,7 +70,7 @@ class _LoanDialogState extends State<_LoanDialog> {
       clientId: clientId!,
       principalCents: value,
       rateBps: rateBps,
-      rateMode: rateMode,
+      rateMode: interestPlusCapital ? RateMode.total : rateMode,
       contractMode: contractMode,
       frequency: frequency,
       intervalDays: every,
@@ -107,7 +109,9 @@ class _LoanDialogState extends State<_LoanDialog> {
   void save() {
     final current = draft();
     if (current == null) {
-      setState(() => error = 'Escolha o cliente e informe valor, taxa e parcelas.');
+      setState(() => error = interestPlusCapital
+          ? 'Escolha o cliente e informe valor e taxa.'
+          : 'Escolha o cliente e informe valor, taxa e parcelas.');
       return;
     }
     widget.repo.createLoan(current);
@@ -159,16 +163,18 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ],
                 onChanged: (value) => setState(() => contractMode = value ?? contractMode),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<RateMode>(
-                initialValue: rateMode,
-                decoration: const InputDecoration(labelText: 'Juros aplicado'),
-                items: [
-                  for (final mode in RateMode.values)
-                    DropdownMenuItem(value: mode, child: Text(mode.label)),
-                ],
-                onChanged: (value) => setState(() => rateMode = value ?? rateMode),
-              ),
+              if (!interestPlusCapital) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<RateMode>(
+                  initialValue: rateMode,
+                  decoration: const InputDecoration(labelText: 'Juros aplicado'),
+                  items: [
+                    for (final mode in RateMode.values)
+                      DropdownMenuItem(value: mode, child: Text(mode.label)),
+                  ],
+                  onChanged: (value) => setState(() => rateMode = value ?? rateMode),
+                ),
+              ],
               const SizedBox(height: 12),
               DropdownButtonFormField<Frequency>(
                 initialValue: frequency,
@@ -188,13 +194,15 @@ class _LoanDialogState extends State<_LoanDialog> {
                   keyboardType: TextInputType.number,
                 ),
               ],
-              const SizedBox(height: 12),
-              TextField(
-                controller: count,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Número de parcelas'),
-                keyboardType: TextInputType.number,
-              ),
+              if (!interestPlusCapital) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: count,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(labelText: 'Número de parcelas'),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
               const SizedBox(height: 12),
               OutlinedButton(onPressed: pickDate, child: Text('Data do contrato: ${fmtDate(contractDate)}')),
               const SizedBox(height: 8),
@@ -239,7 +247,9 @@ class _LoanDialogState extends State<_LoanDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Juros: ${fmtMoney(interest)}'),
-                      Text('Primeira parcela: ${fmtMoney(plan.first.totalCents)} em ${fmtDate(plan.first.due)}'),
+                      Text(interestPlusCapital
+                          ? 'Vencimento: ${fmtMoney(plan.first.totalCents)} em ${fmtDate(plan.first.due)}'
+                          : 'Primeira parcela: ${fmtMoney(plan.first.totalCents)} em ${fmtDate(plan.first.due)}'),
                       Text('Total a receber: ${fmtMoney(total)}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     ],
                   ),
