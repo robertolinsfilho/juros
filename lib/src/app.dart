@@ -42,6 +42,7 @@ class _JurosAppState extends State<JurosApp> {
   bool checking = true;
   bool showLogin = false;
   bool showSignup = false;
+  final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -74,7 +75,9 @@ class _JurosAppState extends State<JurosApp> {
   void reloadScale() => setState(() => scale = widget.repo.fontScale);
 
   Future<void> subscribe(SessionUser current) async {
-    await showPlansDialog(context, auth: auth, token: token, daysLeft: current.access.daysLeft);
+    final navContext = navigatorKey.currentContext;
+    if (navContext == null) return;
+    await showPlansDialog(navContext, auth: auth, token: token, daysLeft: current.access.daysLeft);
   }
 
   Future<void> enter(SessionUser next, String nextToken) async {    widget.repo.setSetting('session_token', nextToken);
@@ -157,6 +160,7 @@ class _JurosAppState extends State<JurosApp> {
   Widget build(BuildContext context) {
     final current = user;
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: brandName,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),

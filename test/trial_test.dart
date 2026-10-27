@@ -65,7 +65,7 @@ void main() {
     expect(find.text('Planos e Assinatura'), findsOneWidget);
     expect(find.text('Plano Mensal'), findsOneWidget);
     expect(find.text('Aplicativo + Relatório'), findsOneWidget);
-    expect(find.textContaining('3 dias'), findsWidgets);
+    expect(find.textContaining('3 dia(s)'), findsOneWidget);
     await tester.tap(find.text('Assinar agora').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('Pedido registrado'), findsOneWidget);
