@@ -64,6 +64,18 @@ class AuthApi {
     return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
   }
 
+  Future<Map<String, String>> settings(String token) async {
+    final json = await _send('GET', '/api/settings', token: token);
+    final raw = json['settings'];
+    if (raw is! Map) return {};
+    return {for (final entry in raw.entries) entry.key as String: entry.value as String};
+  }
+
+  /// Valor nulo apaga o ajuste no servidor.
+  Future<void> saveSettings(String token, Map<String, String?> changes) async {
+    await _send('POST', '/api/settings', token: token, body: {'settings': changes});
+  }
+
   Future<void> logout(String token) async {
     try {
       await _send('POST', '/api/logout', token: token);

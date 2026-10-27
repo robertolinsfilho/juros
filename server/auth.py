@@ -18,6 +18,12 @@ PORT = 8765
 ITERATIONS = 120_000
 SESSION_SECONDS = 14 * 24 * 60 * 60
 USERNAME = re.compile(r"^[a-z0-9._]{3,32}$")
+# Configurações de cada pessoa que acompanham o login em qualquer aparelho.
+SETTING_KEY = re.compile(
+    r"^(creditor_name|company_name|pix_key|pix_keys|font_scale|sig_[a-z_]{1,40}|msg_[a-z0-9_]{1,60})$"
+)
+SETTING_VALUE_MAX = 20_000
+SETTINGS_MAX = 200
 
 
 def connect():
@@ -57,6 +63,12 @@ def ensure_schema(conn):
           token TEXT PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES users(id),
           expires_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS user_settings (
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          PRIMARY KEY (user_id, key)
         );
         """
     )
@@ -163,6 +175,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/me" and method == "POST":
                 self._update_profile(conn, actor, data)
+                return
+            if path == "/api/settings" and method == "GET":
+                self._get_settings(conn, actor)
+                return
+            if path == "/api/settings" and method == "POST":
+                self._save_settings(conn, actor, data)
                 return
             if path == "/api/users" and method == "GET":
                 self._list_users(conn, actor)
@@ -298,6 +316,46 @@ class Handler(BaseHTTPRequestHandler):
         conn.execute("UPDATE users SET active = ? WHERE id = ?", (active, user_id))
         if not active:
             conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        conn.commit()
+        self._send(200, {"ok": True})
+
+    def _get_settings(self, conn, actor):
+        rows = conn.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (actor["id"],)).fetchall()
+        self._send(200, {"settings": {row["key"]: row["value"] for row in rows}})
+
+    def _save_settings(self, conn, actor, data):
+        changes = data.get("settings")
+        if not isinstance(changes, dict):
+            self._send(400, {"error": "Pedido inválido."})
+            return
+        for key, value in changes.items():
+            if not isinstance(key, str) or not SETTING_KEY.match(key):
+                self._send(400, {"error": "Configuração desconhecida."})
+                return
+            if value is not None and (not isinstance(value, str) or len(value) > SETTING_VALUE_MAX):
+                self._send(400, {"error": "Valor inválido."})
+                return
+        existing = {
+            row["key"]
+            for row in conn.execute("SELECT key FROM user_settings WHERE user_id = ?", (actor["id"],)).fetchall()
+        }
+        final = (existing | {k for k, v in changes.items() if v is not None}) - {
+            k for k, v in changes.items() if v is None
+        }
+        if len(final) > SETTINGS_MAX:
+            self._send(400, {"error": "Configurações demais."})
+            return
+        for key, value in changes.items():
+            if value is None:
+                conn.execute("DELETE FROM user_settings WHERE user_id = ? AND key = ?", (actor["id"], key))
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO user_settings(user_id, key, value) VALUES (?, ?, ?)
+                    ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value
+                    """,
+                    (actor["id"], key, value),
+                )
         conn.commit()
         self._send(200, {"ok": True})
 

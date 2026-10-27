@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth/auth_api.dart';
+import 'auth/settings_sync.dart';
 import 'data/repository.dart';
 import 'theme.dart';
 import 'ui/cash_page.dart';
@@ -27,6 +28,7 @@ class JurosApp extends StatefulWidget {
 
 class _JurosAppState extends State<JurosApp> {
   late final AuthApi auth = widget.auth ?? AuthApi();
+  late final SettingsSync sync = SettingsSync(widget.repo, auth);
   int section = 0;
   late double scale = widget.repo.fontScale;
   SessionUser? user;
@@ -47,8 +49,10 @@ class _JurosAppState extends State<JurosApp> {
     }
     try {
       final me = await auth.me(saved);
+      await sync.start(saved);
       if (!mounted) return;
       setState(() {
+        scale = widget.repo.fontScale;
         user = me;
         token = saved;
         checking = false;
@@ -61,16 +65,22 @@ class _JurosAppState extends State<JurosApp> {
 
   void reloadScale() => setState(() => scale = widget.repo.fontScale);
 
-  void enter(SessionUser next, String nextToken) {
+  Future<void> enter(SessionUser next, String nextToken) async {
     widget.repo.setSetting('session_token', nextToken);
+    setState(() => checking = true);
+    await sync.start(nextToken);
+    if (!mounted) return;
     setState(() {
       user = next;
       token = nextToken;
       section = 0;
+      scale = widget.repo.fontScale;
+      checking = false;
     });
   }
 
   Future<void> leave() async {
+    await sync.stop();
     await auth.logout(token);
     widget.repo.removeSetting('session_token');
     if (!mounted) return;
@@ -78,6 +88,7 @@ class _JurosAppState extends State<JurosApp> {
       user = null;
       token = '';
       section = 0;
+      scale = widget.repo.fontScale;
     });
   }
 
@@ -90,10 +101,8 @@ class _JurosAppState extends State<JurosApp> {
       (Icons.account_balance_wallet_outlined, 'Caixa', 4),
       (Icons.bar_chart_outlined, 'Relatórios', 5),
       (Icons.delete_outline, 'Lixeira', 6),
-      if (current.isAdmin) ...[
-        (Icons.manage_accounts_outlined, 'Usuários', 8),
-        (Icons.settings_outlined, 'Configurações', 7),
-      ],
+      (Icons.settings_outlined, 'Configurações', 7),
+      if (current.isAdmin) (Icons.manage_accounts_outlined, 'Usuários', 8),
     ];
   }
 

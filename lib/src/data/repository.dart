@@ -410,6 +410,40 @@ class Repo {
 
   void removeSetting(String key) {
     db.execute('DELETE FROM settings WHERE key = ?', [key]);
+    onSettingChanged?.call(key, null);
+  }
+
+  /// Chamado quando um ajuste muda; usado para enviar os ajustes pessoais ao servidor.
+  void Function(String key, String? value)? onSettingChanged;
+
+  static final _personalKey = RegExp(
+    r'^(creditor_name|company_name|pix_key|pix_keys|font_scale|sig_[a-z_]+|msg_[a-z0-9_]+)$',
+  );
+
+  /// Ajustes pessoais guardados neste navegador.
+  Map<String, String> syncedSettings() {
+    final rows = db.select('SELECT key, value FROM settings');
+    return {
+      for (final row in rows)
+        if (_personalKey.hasMatch(row['key'] as String)) row['key'] as String: row['value'] as String,
+    };
+  }
+
+  /// Troca os ajustes pessoais pelos do servidor, sem avisar de volta.
+  void applySyncedSettings(Map<String, String> remote) {
+    for (final key in syncedSettings().keys) {
+      if (!remote.containsKey(key)) db.execute('DELETE FROM settings WHERE key = ?', [key]);
+    }
+    remote.forEach((key, value) {
+      if (!_personalKey.hasMatch(key)) return;
+      db.execute(
+        '''
+        INSERT INTO settings(key, value) VALUES(?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        ''',
+        [key, value],
+      );
+    });
   }
 
   void setSetting(String key, String value) {
@@ -420,6 +454,7 @@ class Repo {
       ''',
       [key, value],
     );
+    onSettingChanged?.call(key, value);
   }
 
   double get fontScale => double.tryParse(setting('font_scale', '1')) ?? 1;
