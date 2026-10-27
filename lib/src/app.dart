@@ -110,7 +110,7 @@ class _JurosAppState extends State<JurosApp> {
   }
 }
 
-class _SectionBar extends StatefulWidget {
+class _SectionBar extends StatelessWidget {
   const _SectionBar({
     required this.selected,
     required this.destinations,
@@ -121,36 +121,7 @@ class _SectionBar extends StatefulWidget {
   final List<(IconData, String)> destinations;
   final ValueChanged<int> onSelected;
 
-  @override
-  State<_SectionBar> createState() => _SectionBarState();
-}
-
-class _SectionBarState extends State<_SectionBar> {
-  final scroll = ScrollController();
-
-  @override
-  void didUpdateWidget(covariant _SectionBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selected != widget.selected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => reveal());
-    }
-  }
-
-  @override
-  void dispose() {
-    scroll.dispose();
-    super.dispose();
-  }
-
-  void reveal() {
-    if (!scroll.hasClients) return;
-    final target = widget.selected * 88.0 - 24;
-    scroll.animateTo(
-      target.clamp(0, scroll.position.maxScrollExtent).toDouble(),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
-  }
+  static const primary = [0, 1, 2, 3];
 
   @override
   Widget build(BuildContext context) {
@@ -160,34 +131,93 @@ class _SectionBarState extends State<_SectionBar> {
         top: false,
         child: SizedBox(
           height: 64,
-          child: ListView.builder(
-            controller: scroll,
-            scrollDirection: Axis.horizontal,
-            itemCount: widget.destinations.length,
-            itemBuilder: (context, index) {
-              final item = widget.destinations[index];
-              final selected = index == widget.selected;
-              final color = selected ? AppColors.green : AppColors.muted;
-              return InkWell(
-                onTap: () => widget.onSelected(index),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 76),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(item.$1, color: color, size: 22),
-                        const SizedBox(height: 4),
-                        Text(item.$2, style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+          child: Row(
+            children: [
+              for (final index in primary) Expanded(child: _slot(index)),
+              Expanded(child: _more(context)),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _slot(int index) {
+    final item = destinations[index];
+    return _NavSlot(
+      icon: item.$1,
+      label: item.$2,
+      selected: selected == index,
+      onTap: () => onSelected(index),
+    );
+  }
+
+  Widget _more(BuildContext context) {
+    final extra = selected >= primary.length;
+    final label = extra ? destinations[selected].$2 : 'Mais';
+    return _NavSlot(
+      icon: extra ? destinations[selected].$1 : Icons.more_horiz,
+      label: label,
+      selected: extra,
+      onTap: () {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: AppColors.card,
+          builder: (sheetContext) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var index = primary.length; index < destinations.length; index++)
+                    ListTile(
+                      leading: Icon(destinations[index].$1, color: selected == index ? AppColors.green : AppColors.muted),
+                      title: Text(destinations[index].$2),
+                      selected: selected == index,
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        onSelected(index);
+                      },
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _NavSlot extends StatelessWidget {
+  const _NavSlot({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.green : AppColors.muted;
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+          ),
+        ],
       ),
     );
   }
