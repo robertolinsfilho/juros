@@ -286,17 +286,18 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ),
                 const SizedBox(height: 12),
               ],
-              DropdownButtonFormField<Frequency>(
-                key: ValueKey('freq-${interestPlusCapital ? 'juros' : 'parcelado'}-$frequency'),
-                initialValue: frequency,
-                decoration: InputDecoration(labelText: interestPlusCapital ? 'Frequência de cobrança' : 'Frequência'),
-                items: [
-                  for (final item in Frequency.values)
-                    if (interestPlusCapital ? item != Frequency.personalizado : true)
-                      DropdownMenuItem(value: item, child: Text(frequencyText(item))),
-                ],
-                onChanged: (next) => setState(() => frequency = next ?? frequency),
-              ),
+              if (!interestPlusCapital) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<Frequency>(
+                  key: ValueKey('freq-parcelado-$frequency'),
+                  initialValue: frequency,
+                  decoration: const InputDecoration(labelText: 'Frequência'),
+                  items: [
+                    for (final item in Frequency.values) DropdownMenuItem(value: item, child: Text(frequencyText(item))),
+                  ],
+                  onChanged: (next) => setState(() => frequency = next ?? frequency),
+                ),
+              ],
               if (customSchedule) ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<Frequency>(
@@ -311,7 +312,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   onChanged: (next) => setState(() => chargeFrequency = next ?? chargeFrequency),
                 ),
               ],
-              if (asksInterval) ...[
+              if (asksInterval && !interestPlusCapital) ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: interval,
@@ -366,41 +367,6 @@ class _LoanDialogState extends State<_LoanDialog> {
                     child: Text(plan.isEmpty ? '' : fmtMoney(total), style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
               ],
-              if (interestPlusCapital) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: parcelValue,
-                  onChanged: (raw) {
-                    final payment = parseMoney(raw);
-                    final lent = parseMoney(principal.text);
-                    if (payment == null || lent == null || lent <= 0) return;
-                    rate.text = (payment / lent * 100).toStringAsFixed(2).replaceAll('.', ',');
-                    setState(() {});
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Valor da parcela (R\$)',
-                    hintText: parcelCents > 0 ? fmtMoney(parcelCents) : '0,00',
-                    helperText: 'Preencha a taxa ou o valor da parcela. O outro é calculado.',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => pickDate(first: true),
-                  child: Text('Data da primeira cobrança: ${fmtDate(firstCharge)}'),
-                ),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Data da primeira cobrança de juros', style: TextStyle(fontSize: 12)),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Parcela fixa até quitar'),
-                  subtitle: const Text('O valor da parcela não muda mesmo com pagamentos a mais'),
-                  value: fixedInstallment,
-                  onChanged: (next) => setState(() => fixedInstallment = next),
-                ),
-              ],
               if (value > 0 && total > 0 && total < value)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -441,6 +407,62 @@ class _LoanDialogState extends State<_LoanDialog> {
                         onSelected: (next) => toggleWeekday(day.$1, next),
                       ),
                   ],
+                ),
+              ],
+              if (interestPlusCapital) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<Frequency>(
+                  key: ValueKey('freq-juros-$frequency'),
+                  initialValue: frequency == Frequency.personalizado ? Frequency.mensal : frequency,
+                  decoration: const InputDecoration(labelText: 'Frequência de cobrança'),
+                  items: [
+                    for (final item in Frequency.values)
+                      if (item != Frequency.personalizado)
+                        DropdownMenuItem(value: item, child: Text(frequencyText(item))),
+                  ],
+                  onChanged: (next) => setState(() => frequency = next ?? frequency),
+                ),
+                if (asksInterval) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: interval,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(labelText: 'A cada quantos dias? *'),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: parcelValue,
+                  onChanged: (raw) {
+                    final payment = parseMoney(raw);
+                    final lent = parseMoney(principal.text);
+                    if (payment == null || lent == null || lent <= 0) return;
+                    rate.text = (payment / lent * 100).toStringAsFixed(2).replaceAll('.', ',');
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Valor da parcela (R\$)',
+                    hintText: parcelCents > 0 ? fmtMoney(parcelCents) : '0,00',
+                    helperText: 'Preencha a taxa ou o valor da parcela. O outro é calculado.',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => pickDate(first: true),
+                  child: Text('Data da primeira cobrança: ${fmtDate(firstCharge)}'),
+                ),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Data da primeira cobrança de juros', style: TextStyle(fontSize: 12)),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Parcela fixa até quitar'),
+                  subtitle: const Text('O valor da parcela não muda mesmo com pagamentos a mais'),
+                  value: fixedInstallment,
+                  onChanged: (next) => setState(() => fixedInstallment = next),
                 ),
               ],
               if (!interestPlusCapital && plan.isNotEmpty) ...[
