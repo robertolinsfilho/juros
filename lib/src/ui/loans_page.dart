@@ -108,6 +108,7 @@ class _LoansPageState extends State<LoansPage> {
             DropdownMenuItem(value: 'quinzenal', child: Text('Quinzenal')),
             DropdownMenuItem(value: 'mensal', child: Text('Mensal')),
             DropdownMenuItem(value: 'n_dias', child: Text('A cada N dias')),
+            DropdownMenuItem(value: 'personalizado', child: Text('Personalizado')),
           ],
           onChanged: (value) => setState(() => type = value ?? 'todos'),
         ),
@@ -227,8 +228,10 @@ class _LoanDetail extends StatelessWidget {
             children: [
               for (final item in items)
                 RecordTile(
-                  title: loan.contractMode == 'apenas_juros'
-                      ? 'Vencimento · ${fmtDateIso(item.dueDate)}'
+                  title: loan.contractMode == 'apenas_juros' && item.principalCents == 0
+                      ? 'Juros · ${fmtDateIso(item.dueDate)}'
+                      : loan.contractMode == 'apenas_juros' && item.interestCents == 0
+                      ? 'Capital · ${fmtDateIso(item.dueDate)}'
                       : 'Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}',
                   subtitle: 'Capital ${fmtMoney(item.principalCents)} · juros ${fmtMoney(item.interestCents)}'
                       '${item.isOpen && item.liveLateCents(DateTime.now()) > 0 ? ' · mora ${fmtMoney(item.liveLateCents(DateTime.now()))}' : ''}'

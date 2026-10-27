@@ -356,6 +356,15 @@ class Repo {
     db.execute(
       'CREATE INDEX IF NOT EXISTS idx_loans_client ON loans(client_id)',
     );
+    _addColumn('loans', 'skip_weekdays', 'INTEGER NOT NULL DEFAULT 0');
+    _addColumn('loans', 'fixed_installment', 'INTEGER NOT NULL DEFAULT 0');
+    _addColumn('loans', 'charge_frequency', "TEXT NOT NULL DEFAULT ''");
+  }
+
+  void _addColumn(String table, String name, String definition) {
+    final columns = db.select('PRAGMA table_info($table)');
+    if (columns.any((row) => row['name'] == name)) return;
+    db.execute('ALTER TABLE $table ADD COLUMN $name $definition');
   }
 
   void purgeExpired([DateTime? now]) {
@@ -589,8 +598,8 @@ class Repo {
           client_id, principal_cents, rate_bps, rate_mode, contract_mode, frequency,
           interval_days, installment_count, contract_date, skip_saturday, skip_sunday,
           skip_holiday, late_mode, late_percent_bps, late_daily_cents, late_fixed_cents,
-          notes, status, created_at
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?)
+          notes, status, created_at, skip_weekdays, fixed_installment, charge_frequency
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?)
         ''',
         [
           draft.clientId,
@@ -600,7 +609,7 @@ class Repo {
           draft.contractMode.code,
           draft.frequency.code,
           draft.intervalDays,
-          draft.count,
+          plan.length,
           isoDate(draft.contractDate),
           draft.skipSaturday ? 1 : 0,
           draft.skipSunday ? 1 : 0,
@@ -611,6 +620,9 @@ class Repo {
           draft.lateFixedCents,
           draft.notes.trim(),
           now,
+          draft.skipWeekdays,
+          draft.fixedInstallment ? 1 : 0,
+          draft.chargeFrequency?.code ?? '',
         ],
       );
       final id = db.lastInsertRowId;
@@ -636,7 +648,9 @@ class Repo {
     final rows = db.select(
       '''
       SELECT i.*, l.status AS loan_status, l.late_mode, l.late_percent_bps,
-             l.late_daily_cents, l.late_fixed_cents
+             l.late_daily_cents, l.late_fixed_cents, l.contract_mode, l.frequency,
+             l.charge_frequency, l.interval_days, l.fixed_installment, l.skip_saturday,
+             l.skip_sunday, l.skip_holiday, l.skip_weekdays
       FROM installments i
       JOIN loans l ON l.id = i.loan_id
       WHERE i.id = ?
@@ -665,6 +679,7 @@ class Repo {
         ''',
         [isoDate(today), late, installmentId],
       );
+      _rollFixedInterest(row);
       final open = _int(
         '''
         SELECT COUNT(*) AS c FROM installments
@@ -680,6 +695,57 @@ class Repo {
       db.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  void _rollFixedInterest(Row row) {
+    if ((row['fixed_installment'] as int? ?? 0) != 1) return;
+    if (row['contract_mode'] != 'apenas_juros') return;
+    if ((row['principal_cents'] as int) != 0) return;
+    final interest = row['interest_cents'] as int;
+    if (interest <= 0) return;
+    final loanId = row['loan_id'] as int;
+    final stored = (row['charge_frequency'] as String?) ?? '';
+    final frequency = FrequencyLabel.parse(stored.isEmpty ? row['frequency'] as String : stored);
+    final next = nextChargeDate(
+      from: parseIsoDate(row['due_date'] as String),
+      frequency: frequency,
+      intervalDays: (row['interval_days'] as int?) ?? 1,
+      skipSaturday: (row['skip_saturday'] as int) == 1,
+      skipSunday: (row['skip_sunday'] as int) == 1,
+      skipHoliday: (row['skip_holiday'] as int) == 1,
+      skipWeekdays: (row['skip_weekdays'] as int?) ?? 0,
+    );
+    final capital = db.select(
+      '''
+      SELECT number FROM installments
+      WHERE loan_id = ? AND paid_at IS NULL AND status = 'aberta' AND principal_cents > 0
+      ORDER BY number LIMIT 1
+      ''',
+      [loanId],
+    );
+    final number = capital.isEmpty
+        ? _int('SELECT COALESCE(MAX(number), 0) + 1 AS c FROM installments WHERE loan_id = ?', [loanId])
+        : capital.first['number'] as int;
+    if (capital.isNotEmpty) {
+      db.execute(
+        'UPDATE installments SET number = number + 1 WHERE loan_id = ? AND number >= ?',
+        [loanId, number],
+      );
+    }
+    db.execute(
+      '''
+      INSERT INTO installments(loan_id, number, due_date, principal_cents, interest_cents, status)
+      VALUES(?, ?, ?, 0, ?, 'aberta')
+      ''',
+      [loanId, number, isoDate(next), interest],
+    );
+    db.execute(
+      '''
+      UPDATE loans SET installment_count = (SELECT COUNT(*) FROM installments WHERE loan_id = ?)
+      WHERE id = ?
+      ''',
+      [loanId, loanId],
+    );
   }
 
   void markLost(int loanId) {

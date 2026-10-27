@@ -7,7 +7,7 @@ enum ContractMode { amortizacao, apenasJuros }
 
 enum RateMode { porParcela, total }
 
-enum Frequency { diario, semanal, dezDias, quinzenal, mensal, nDias }
+enum Frequency { diario, semanal, dezDias, quinzenal, mensal, nDias, personalizado }
 
 extension ContractModeLabel on ContractMode {
   String get code => switch (this) {
@@ -51,6 +51,7 @@ extension FrequencyLabel on Frequency {
     Frequency.quinzenal => 'quinzenal',
     Frequency.mensal => 'mensal',
     Frequency.nDias => 'n_dias',
+    Frequency.personalizado => 'personalizado',
   };
 
   String get label => switch (this) {
@@ -60,6 +61,7 @@ extension FrequencyLabel on Frequency {
     Frequency.quinzenal => 'Quinzenal (15 dias)',
     Frequency.mensal => 'Mensal',
     Frequency.nDias => 'A cada N dias',
+    Frequency.personalizado => 'Personalizado',
   };
 
   static Frequency parse(String code) {
@@ -69,6 +71,7 @@ extension FrequencyLabel on Frequency {
       'dez_dias' => Frequency.dezDias,
       'quinzenal' => Frequency.quinzenal,
       'n_dias' => Frequency.nDias,
+      'personalizado' => Frequency.personalizado,
       _ => Frequency.mensal,
     };
   }
@@ -93,6 +96,13 @@ class LoanDraft {
     required this.lateDailyCents,
     required this.lateFixedCents,
     required this.notes,
+    this.skipWeekdays = 0,
+    this.fixedInstallment = false,
+    this.openInterest = false,
+    this.firstDue,
+    this.chargeFrequency,
+    this.dueOverrides = const {},
+    this.amountOverrides = const {},
   });
 
   final int clientId;
@@ -112,6 +122,13 @@ class LoanDraft {
   final int lateDailyCents;
   final int lateFixedCents;
   final String notes;
+  final int skipWeekdays;
+  final bool fixedInstallment;
+  final bool openInterest;
+  final DateTime? firstDue;
+  final Frequency? chargeFrequency;
+  final Map<int, DateTime> dueOverrides;
+  final Map<int, int> amountOverrides;
 }
 
 class PlannedInstallment {
@@ -131,6 +148,9 @@ class PlannedInstallment {
 }
 
 List<PlannedInstallment> buildSchedule(LoanDraft draft) {
+  if (draft.openInterest) {
+    return _withOverrides(_openInterest(draft), draft);
+  }
   if (draft.count < 1) {
     throw ArgumentError('O contrato precisa de ao menos uma parcela.');
   }
@@ -139,7 +159,7 @@ List<PlannedInstallment> buildSchedule(LoanDraft draft) {
   }
 
   final slices = _slices(draft);
-  return [
+  return _withOverrides([
     for (var i = 0; i < slices.length; i++)
       PlannedInstallment(
         number: i + 1,
@@ -147,7 +167,7 @@ List<PlannedInstallment> buildSchedule(LoanDraft draft) {
         principalCents: slices[i].principal,
         interestCents: slices[i].interest,
       ),
-  ];
+  ], draft);
 }
 
 int lateFeeCents({
@@ -230,20 +250,98 @@ List<_Slice> _slices(LoanDraft draft) {
   return slices;
 }
 
+Frequency spacingOf(LoanDraft draft) {
+  if (draft.chargeFrequency != null) return draft.chargeFrequency!;
+  if (draft.frequency == Frequency.personalizado) return Frequency.mensal;
+  return draft.frequency;
+}
+
+DateTime nextChargeDate({
+  required DateTime from,
+  required Frequency frequency,
+  required int intervalDays,
+  required bool skipSaturday,
+  required bool skipSunday,
+  required bool skipHoliday,
+  required int skipWeekdays,
+}) {
+  return _dueDate(
+    LoanDraft(
+      clientId: 0,
+      principalCents: 0,
+      rateBps: 0,
+      rateMode: RateMode.porParcela,
+      contractMode: ContractMode.apenasJuros,
+      frequency: frequency,
+      intervalDays: intervalDays,
+      count: 1,
+      contractDate: from,
+      skipSaturday: skipSaturday,
+      skipSunday: skipSunday,
+      skipHoliday: skipHoliday,
+      lateMode: 'sem_mora',
+      latePercentBps: 0,
+      lateDailyCents: 0,
+      lateFixedCents: 0,
+      notes: '',
+      skipWeekdays: skipWeekdays,
+    ),
+    1,
+  );
+}
+
+List<PlannedInstallment> _openInterest(LoanDraft draft) {
+  final due = draft.firstDue == null ? _dueDate(draft, 1) : _shift(draft.firstDue!, draft);
+  final interest = (draft.principalCents * (draft.rateBps / 10000)).round();
+  return [
+    PlannedInstallment(number: 1, due: due, principalCents: 0, interestCents: interest),
+    PlannedInstallment(number: 2, due: due, principalCents: draft.principalCents, interestCents: 0),
+  ];
+}
+
+List<PlannedInstallment> _withOverrides(List<PlannedInstallment> plan, LoanDraft draft) {
+  if (draft.dueOverrides.isEmpty && draft.amountOverrides.isEmpty) return plan;
+  return [for (final item in plan) _override(item, draft)];
+}
+
+PlannedInstallment _override(PlannedInstallment item, LoanDraft draft) {
+  var principal = item.principalCents;
+  var interest = item.interestCents;
+  final amount = draft.amountOverrides[item.number];
+  if (amount != null && amount >= 0) {
+    if (amount >= principal) {
+      interest = amount - principal;
+    } else {
+      principal = amount;
+      interest = 0;
+    }
+  }
+  final due = draft.dueOverrides[item.number];
+  return PlannedInstallment(
+    number: item.number,
+    due: due == null ? item.due : _shift(due, draft),
+    principalCents: principal,
+    interestCents: interest,
+  );
+}
+
 DateTime _dueDate(LoanDraft draft, int index) {
+  final spacing = spacingOf(draft);
+  final origin = dateOnly(draft.firstDue ?? draft.contractDate);
+  final steps = draft.firstDue == null ? index : index - 1;
   final DateTime raw;
-  if (draft.frequency == Frequency.mensal) {
-    raw = addMonths(dateOnly(draft.contractDate), index);
+  if (spacing == Frequency.mensal) {
+    raw = addMonths(origin, steps);
   } else {
-    final step = switch (draft.frequency) {
+    final step = switch (spacing) {
       Frequency.diario => 1,
       Frequency.semanal => 7,
       Frequency.dezDias => 10,
       Frequency.quinzenal => 15,
       Frequency.nDias => draft.intervalDays < 1 ? 1 : draft.intervalDays,
-      Frequency.mensal => 30,
+      Frequency.mensal || Frequency.personalizado => 30,
     };
-    raw = dateOnly(draft.contractDate).add(Duration(days: step * index));
+    raw = origin.add(Duration(days: step * steps));
   }
   return _shift(raw, draft);
 }
@@ -254,8 +352,16 @@ DateTime _shift(DateTime date, LoanDraft draft) {
     final blockedWeekend =
         (draft.skipSaturday && current.weekday == DateTime.saturday) ||
         (draft.skipSunday && current.weekday == DateTime.sunday);
+    final blockedWeekday = switch (current.weekday) {
+      DateTime.monday => (draft.skipWeekdays & 1) != 0,
+      DateTime.tuesday => (draft.skipWeekdays & 2) != 0,
+      DateTime.wednesday => (draft.skipWeekdays & 4) != 0,
+      DateTime.thursday => (draft.skipWeekdays & 8) != 0,
+      DateTime.friday => (draft.skipWeekdays & 16) != 0,
+      _ => false,
+    };
     final blockedHoliday = draft.skipHoliday && isBrazilianHoliday(current);
-    if (!blockedWeekend && !blockedHoliday) return current;
+    if (!blockedWeekend && !blockedWeekday && !blockedHoliday) return current;
     current = current.add(const Duration(days: 1));
   }
   return current;
