@@ -108,17 +108,17 @@ class _LoanDialogState extends State<_LoanDialog> {
     super.dispose();
   }
 
-  LoanDraft? draft() {
+  LoanDraft? draft({bool preview = false}) {
     final value = parseMoney(principal.text);
     final rateBps = parsePercentBps(rate.text);
     final installments = interestPlusCapital ? 1 : int.tryParse(count.text.trim());
     final every = int.tryParse(interval.text.trim()) ?? 0;
-    if (clientId == null || value == null || value <= 0 || rateBps == null || installments == null || installments < 1) {
+    if ((clientId == null && !preview) || value == null || value <= 0 || rateBps == null || installments == null || installments < 1) {
       return null;
     }
     if (asksInterval && (every < 2 || every > 60)) return null;
     return LoanDraft(
-      clientId: clientId!,
+      clientId: clientId ?? 0,
       principalCents: value,
       rateBps: rateBps,
       rateMode: interestPlusCapital || customSchedule ? RateMode.total : rateMode,
@@ -242,7 +242,7 @@ class _LoanDialogState extends State<_LoanDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final current = draft();
+    final current = draft(preview: true);
     final plan = current == null ? const <PlannedInstallment>[] : buildSchedule(current);
     final interest = plan.fold<int>(0, (sum, item) => sum + item.interestCents);
     final total = plan.fold<int>(0, (sum, item) => sum + item.totalCents);
