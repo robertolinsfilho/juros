@@ -30,6 +30,8 @@ class _LoanDialogState extends State<_LoanDialog> {
   final count = TextEditingController(text: '1');
   final interval = TextEditingController(text: '20');
   final parcelValue = TextEditingController();
+  final parcelFocus = FocusNode();
+  final parcelFocusJuros = FocusNode();
   final jurosTotal = TextEditingController();
   final latePercent = TextEditingController(text: '0');
   final lateDaily = TextEditingController();
@@ -66,7 +68,30 @@ class _LoanDialogState extends State<_LoanDialog> {
   bool get asksInterval => spacing == Frequency.nDias;
 
   @override
+  void initState() {
+    super.initState();
+    parcelFocus.addListener(_parcelFocusChanged);
+    parcelFocusJuros.addListener(_parcelFocusChanged);
+  }
+
+  void _parcelFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void syncParcelValue(int cents) {
+    if (parcelFocus.hasFocus || parcelFocusJuros.hasFocus) return;
+    final text = cents > 0 ? (cents / 100).toStringAsFixed(2).replaceAll('.', ',') : '';
+    if (parcelValue.text == text) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || parcelFocus.hasFocus || parcelFocusJuros.hasFocus) return;
+      parcelValue.text = text;
+    });
+  }
+
+  @override
   void dispose() {
+    parcelFocus.dispose();
+    parcelFocusJuros.dispose();
     principal.dispose();
     rate.dispose();
     count.dispose();
@@ -223,6 +248,7 @@ class _LoanDialogState extends State<_LoanDialog> {
     final total = plan.fold<int>(0, (sum, item) => sum + item.totalCents);
     final value = parseMoney(principal.text) ?? 0;
     final parcelCents = plan.isEmpty ? 0 : plan.first.totalCents;
+    syncParcelValue(parcelCents);
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: const Text('Novo empréstimo'),
@@ -252,10 +278,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ),
                 right: TextField(
                   controller: rate,
-                  onChanged: (_) {
-                    parcelValue.clear();
-                    setState(() {});
-                  },
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(labelText: 'Taxa de juros (%) *'),
                   keyboardType: TextInputType.number,
                 ),
@@ -349,6 +372,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   FieldPair(
                     left: TextField(
                       controller: parcelValue,
+                      focusNode: parcelFocus,
                       onChanged: applyParcelValue,
                       decoration: InputDecoration(
                         labelText: 'Valor da parcela (R\$)',
@@ -434,6 +458,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: parcelValue,
+                  focusNode: parcelFocusJuros,
                   onChanged: (raw) {
                     final payment = parseMoney(raw);
                     final lent = parseMoney(principal.text);
