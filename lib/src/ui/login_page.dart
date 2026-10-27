@@ -6,10 +6,11 @@ import 'brand.dart';
 import 'widgets.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.auth, required this.onSuccess, this.onBack});
+  const LoginPage({super.key, required this.auth, required this.onSuccess, this.onBack, this.onSignup});
 
   final AuthApi auth;
   final VoidCallback? onBack;
+  final VoidCallback? onSignup;
   final void Function(SessionUser user, String token) onSuccess;
 
   @override
@@ -124,6 +125,11 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: busy ? null : submit,
                           child: Text(busy ? 'Entrando...' : 'Entrar'),
                         ),
+                        if (widget.onSignup != null)
+                          TextButton(
+                            onPressed: widget.onSignup,
+                            child: const Text('Criar conta grátis por 3 dias'),
+                          ),
                       ],
                     ),
                   ),

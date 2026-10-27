@@ -9,9 +9,10 @@ const _maxWidth = 1040.0;
 
 /// Página inicial mostrada antes do login.
 class LandingPage extends StatefulWidget {
-  const LandingPage({super.key, required this.onEnter});
+  const LandingPage({super.key, required this.onCreate, required this.onLogin});
 
-  final VoidCallback onEnter;
+  final VoidCallback onCreate;
+  final VoidCallback onLogin;
 
   @override
   State<LandingPage> createState() => _LandingPageState();
@@ -42,20 +43,20 @@ class _LandingPageState extends State<LandingPage> {
           final wide = constraints.maxWidth >= 900;
           return Column(
             children: [
-              _Header(onEnter: widget.onEnter),
+              _Header(onCreate: widget.onCreate, onLogin: widget.onLogin),
               Expanded(
                 child: SingleChildScrollView(
                   controller: scroll,
                   child: Column(
                     children: [
-                      _Hero(wide: wide, onEnter: widget.onEnter, onHow: showHow),
+                      _Hero(wide: wide, onCreate: widget.onCreate, onHow: showHow),
                       const _Strip(),
                       _Band(child: _Highlight(wide: wide)),
                       _Band(child: _Compare(wide: wide)),
                       KeyedSubtree(key: howKey, child: _Band(child: _Features(wide: wide))),
                       _Band(child: _Steps(wide: wide)),
                       const _Band(child: _Faq()),
-                      _Band(child: _Cta(onEnter: widget.onEnter)),
+                      _Band(child: _Cta(onCreate: widget.onCreate)),
                       const _Footer(),
                     ],
                   ),
@@ -70,9 +71,10 @@ class _LandingPageState extends State<LandingPage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onEnter});
+  const _Header({required this.onCreate, required this.onLogin});
 
-  final VoidCallback onEnter;
+  final VoidCallback onCreate;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -81,19 +83,31 @@ class _Header extends StatelessWidget {
         color: AppColors.bg,
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _maxWidth),
           child: Row(
             children: [
-              const _Logo(),
-              const Spacer(),
+              const Flexible(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: _Logo()),
+                ),
+              ),
+              const SizedBox(width: 8),
               if (MediaQuery.sizeOf(context).width >= 480) ...[
-                TextButton(onPressed: onEnter, child: const Text('Entrar')),
+                TextButton(onPressed: onLogin, child: const Text('Entrar')),
                 const SizedBox(width: 8),
               ],
-              FilledButton(onPressed: onEnter, child: Text(MediaQuery.sizeOf(context).width >= 480 ? 'Acessar' : 'Entrar')),
+              FilledButton(
+                onPressed: onCreate,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(MediaQuery.sizeOf(context).width >= 480 ? 'Criar conta grátis' : 'Criar conta'),
+              ),
             ],
           ),
         ),
@@ -107,7 +121,7 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const BrandName(size: 30);
+    return const BrandName(size: 26);
   }
 }
 
@@ -202,10 +216,10 @@ class _Box extends StatelessWidget {
 // ───────────────────────────── Hero ─────────────────────────────
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.wide, required this.onEnter, required this.onHow});
+  const _Hero({required this.wide, required this.onCreate, required this.onHow});
 
   final bool wide;
-  final VoidCallback onEnter;
+  final VoidCallback onCreate;
   final VoidCallback onHow;
 
   Widget copy() {
@@ -219,15 +233,9 @@ class _Hero extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 14, color: AppColors.green),
-              SizedBox(width: 6),
-              Flexible(
-                child: Text('Acesso exclusivo · dados protegidos', style: TextStyle(color: AppColors.green, fontSize: 12)),
-              ),
-            ],
+          child: const Text(
+            'Acesso exclusivo · dados protegidos',
+            style: TextStyle(color: AppColors.green, fontSize: 12),
           ),
         ),
         const SizedBox(height: 22),
@@ -252,16 +260,9 @@ class _Hero extends StatelessWidget {
           runSpacing: 12,
           children: [
             FilledButton(
-              onPressed: onEnter,
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18)),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(child: Text('Começar 3 dias grátis', maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 16),
-                ],
-              ),
+              onPressed: onCreate,
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18)),
+              child: const Text('Criar conta grátis por 3 dias', textAlign: TextAlign.center),
             ),
             OutlinedButton.icon(
               onPressed: onHow,
@@ -1002,7 +1003,7 @@ class _Faq extends StatelessWidget {
   static const questions = [
     (
       'Quem pode usar?',
-      'O acesso é por login individual. O administrador cria os usuários na tela Usuários.',
+      'O acesso começa com 3 dias grátis. Crie a sua conta na página inicial. Quem já tem usuário entra com login e senha.',
     ),
     (
       'Quais tipos de empréstimo posso criar?',
@@ -1076,9 +1077,9 @@ class _Faq extends StatelessWidget {
 // ───────────────────────────── Chamada final e rodapé ─────────────────────────────
 
 class _Cta extends StatelessWidget {
-  const _Cta({required this.onEnter});
+  const _Cta({required this.onCreate});
 
-  final VoidCallback onEnter;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -1109,9 +1110,9 @@ class _Cta extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: onEnter,
+            onPressed: onCreate,
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18)),
-            child: const Text('Começar 3 dias grátis'),
+            child: const Text('Criar conta grátis por 3 dias'),
           ),
         ],
       ),

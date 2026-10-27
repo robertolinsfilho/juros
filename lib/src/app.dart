@@ -17,6 +17,7 @@ import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
 import 'ui/reports_page.dart';
 import 'ui/settings_page.dart';
+import 'ui/signup_page.dart';
 import 'ui/trial_widgets.dart';
 import 'ui/trash_page.dart';
 import 'ui/users_page.dart';
@@ -40,6 +41,7 @@ class _JurosAppState extends State<JurosApp> {
   String token = '';
   bool checking = true;
   bool showLogin = false;
+  bool showSignup = false;
 
   @override
   void initState() {
@@ -98,6 +100,7 @@ class _JurosAppState extends State<JurosApp> {
       token = '';
       section = 0;
       showLogin = false;
+      showSignup = false;
       scale = widget.repo.fontScale;
     });
   }
@@ -166,9 +169,30 @@ class _JurosAppState extends State<JurosApp> {
       home: checking
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : current == null
-              ? (showLogin
-                  ? LoginPage(auth: auth, onSuccess: enter, onBack: () => setState(() => showLogin = false))
-                  : LandingPage(onEnter: () => setState(() => showLogin = true)))
+              ? (showSignup
+                  ? SignupPage(
+                      auth: auth,
+                      onSuccess: enter,
+                      onBack: () => setState(() => showSignup = false),
+                      onLogin: () => setState(() {
+                        showSignup = false;
+                        showLogin = true;
+                      }),
+                    )
+                  : showLogin
+                  ? LoginPage(
+                      auth: auth,
+                      onSuccess: enter,
+                      onBack: () => setState(() => showLogin = false),
+                      onSignup: () => setState(() {
+                        showLogin = false;
+                        showSignup = true;
+                      }),
+                    )
+                  : LandingPage(
+                      onCreate: () => setState(() => showSignup = true),
+                      onLogin: () => setState(() => showLogin = true),
+                    ))
               : current.access.blocked
               ? _Expired(onSubscribe: () => subscribe(current), onLogout: leave)
               : _Shell(

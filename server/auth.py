@@ -242,6 +242,9 @@ class Handler(BaseHTTPRequestHandler):
             if method == "POST" and path == "/api/login":
                 self._login(conn, data)
                 return
+            if method == "POST" and path == "/api/signup":
+                self._signup(conn, data)
+                return
             actor = current_user(conn, self.headers.get("Authorization"))
             if actor is None:
                 self._send(401, {"error": "Entre novamente."})
@@ -315,6 +318,52 @@ class Handler(BaseHTTPRequestHandler):
             (token, row["id"], int(time.time()) + SESSION_SECONDS),
         )
         conn.commit()
+        self._send(200, {"token": token, "user": public_user(row)})
+
+    def _signup(self, conn, data):
+        """Conta nova, sempre comum, com 3 dias grátis e já entra no sistema."""
+        recent = conn.execute(
+            "SELECT COUNT(*) AS n FROM users WHERE created_at > ?",
+            (int(time.time()) - 3600,),
+        ).fetchone()["n"]
+        if recent >= 40:
+            self._send(429, {"error": "Muitas contas criadas agora. Tente de novo em alguns minutos."})
+            return
+        username = str(data.get("username", "")).strip().lower()
+        name = str(data.get("name", "")).strip()
+        password = str(data.get("password", ""))
+        if not USERNAME.fullmatch(username):
+            self._send(400, {"error": "Usuário: 3 a 32 letras, números, ponto ou _."})
+            return
+        if not name or len(name) > 80:
+            self._send(400, {"error": "Informe o nome."})
+            return
+        if len(password) < 6:
+            self._send(400, {"error": "A senha precisa ter pelo menos 6 caracteres."})
+            return
+        now = int(time.time())
+        salt, digest = hash_password(password)
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO users(username, name, role, salt, password_hash, active, created_at, trial_ends_at)
+                VALUES (?, ?, 'comum', ?, ?, 1, ?, ?)
+                """,
+                (username, name, salt, digest, now, now + TRIAL_DAYS * DAY),
+            )
+        except sqlite3.IntegrityError:
+            self._send(409, {"error": "Já existe um usuário com esse login."})
+            return
+        token = secrets.token_urlsafe(32)
+        conn.execute(
+            "INSERT INTO sessions(token, user_id, expires_at) VALUES (?, ?, ?)",
+            (token, cur.lastrowid, now + SESSION_SECONDS),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            (cur.lastrowid,),
+        ).fetchone()
         self._send(200, {"token": token, "user": public_user(row)})
 
     def _require_admin(self, actor):

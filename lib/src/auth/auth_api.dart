@@ -113,6 +113,22 @@ class AuthApi {
     );
   }
 
+  Future<({SessionUser user, String token})> signup({
+    required String name,
+    required String username,
+    required String password,
+  }) async {
+    final json = await _send('POST', '/api/signup', body: {
+      'name': name.trim(),
+      'username': username.trim(),
+      'password': password,
+    });
+    return (
+      user: SessionUser.fromJson(json['user'] as Map<String, dynamic>),
+      token: json['token'] as String,
+    );
+  }
+
   Future<SessionUser> me(String token) async {
     final json = await _send('GET', '/api/me', token: token);
     return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
