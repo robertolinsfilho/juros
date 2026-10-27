@@ -17,7 +17,19 @@ HOST = "127.0.0.1"
 PORT = 8765
 ITERATIONS = 120_000
 SESSION_SECONDS = 14 * 24 * 60 * 60
+DAY = 24 * 60 * 60
 USERNAME = re.compile(r"^[a-z0-9._]{3,32}$")
+
+# Planos oferecidos. Preencha "link" com o endereço de pagamento para abrir direto;
+# vazio, o app registra o pedido e mostra como falar com o suporte.
+PLANS = {
+    "mensal": {"label": "Plano Mensal", "price": "R$ 49,99/mês", "months": 1, "link": ""},
+    "app_relatorio": {"label": "Aplicativo + Relatório", "price": "R$ 69,90/mês", "months": 1, "link": ""},
+}
+CHECKOUT_MESSAGE = (
+    "Pedido registrado. Fale com o suporte para concluir o pagamento e liberar o acesso."
+)
+TRIAL_DAYS = 3
 # Configurações de cada pessoa que acompanham o login em qualquer aparelho.
 SETTING_KEY = re.compile(
     r"^(creditor_name|company_name|pix_key|pix_keys|font_scale|sig_[a-z_]{1,40}|msg_[a-z0-9_]{1,60})$"
@@ -57,7 +69,10 @@ def ensure_schema(conn):
           salt TEXT NOT NULL,
           password_hash TEXT NOT NULL,
           active INTEGER NOT NULL DEFAULT 1,
-          created_at INTEGER NOT NULL
+          created_at INTEGER NOT NULL,
+          trial_ends_at INTEGER NOT NULL DEFAULT 0,
+          paid_until INTEGER NOT NULL DEFAULT 0,
+          plan TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY,
@@ -70,8 +85,32 @@ def ensure_schema(conn):
           value TEXT NOT NULL,
           PRIMARY KEY (user_id, key)
         );
+        CREATE TABLE IF NOT EXISTS subscription_requests (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          plan TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pendente'
+        );
         """
     )
+    upgraded = False
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    for name, definition in (
+        ("trial_ends_at", "INTEGER NOT NULL DEFAULT 0"),
+        ("paid_until", "INTEGER NOT NULL DEFAULT 0"),
+        ("plan", "TEXT NOT NULL DEFAULT ''"),
+    ):
+        if name not in columns:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
+            upgraded = True
+    if upgraded:
+        # Quem já usava o sistema antes do teste de 3 dias mantém o acesso liberado.
+        conn.execute(
+            "UPDATE users SET paid_until = ?, plan = 'cortesia' WHERE paid_until = 0",
+            (int(time.time()) + 3650 * DAY,),
+        )
+        conn.commit()
     count = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
     if count:
         conn.commit()
@@ -87,10 +126,10 @@ def ensure_schema(conn):
         salt, digest = hash_password(password)
         conn.execute(
             """
-            INSERT INTO users(username, name, role, salt, password_hash, active, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, ?)
+            INSERT INTO users(username, name, role, salt, password_hash, active, created_at, trial_ends_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?, ?)
             """,
-            (username, name, role, salt, digest, now),
+            (username, name, role, salt, digest, now, now + TRIAL_DAYS * DAY),
         )
         created.append(f"{username} ({role}): {password}")
     conn.commit()
@@ -100,13 +139,48 @@ def ensure_schema(conn):
         handle.write("\n".join(created) + "\n")
 
 
-def public_user(row):
+def access_of(row, now=None):
+    """Situação do acesso: teste, assinatura ativa ou vencido, com os dias restantes."""
+    now = int(now or time.time())
+    paid_until = int(row["paid_until"] or 0)
+    created = int(row["created_at"] or now)
+    trial_end = int(row["trial_ends_at"] or 0) or (created + TRIAL_DAYS * DAY)
+    if paid_until > now:
+        return {
+            "status": "assinante",
+            "days_left": (paid_until - now + DAY - 1) // DAY,
+            "trial_ends_at": trial_end,
+            "paid_until": paid_until,
+            "plan": row["plan"] or "",
+            "blocked": False,
+        }
+    if trial_end > now:
+        return {
+            "status": "teste",
+            "days_left": (trial_end - now + DAY - 1) // DAY,
+            "trial_ends_at": trial_end,
+            "paid_until": paid_until,
+            "plan": row["plan"] or "",
+            "blocked": False,
+        }
+    return {
+        "status": "vencido",
+        "days_left": 0,
+        "trial_ends_at": trial_end,
+        "paid_until": paid_until,
+        "plan": row["plan"] or "",
+        "blocked": True,
+    }
+
+
+def public_user(row, now=None):
     return {
         "id": row["id"],
         "username": row["username"],
         "name": row["name"],
         "role": row["role"],
         "active": bool(row["active"]),
+        "access": access_of(row, now),
     }
 
 
@@ -118,7 +192,8 @@ def current_user(conn, header):
         return None
     row = conn.execute(
         """
-        SELECT u.id, u.username, u.name, u.role, u.active
+        SELECT u.id, u.username, u.name, u.role, u.active, u.created_at,
+               u.trial_ends_at, u.paid_until, u.plan
         FROM sessions s
         JOIN users u ON u.id = s.user_id
         WHERE s.token = ? AND s.expires_at > ?
@@ -176,6 +251,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/me" and method == "POST":
                 self._update_profile(conn, actor, data)
                 return
+            if path == "/api/subscribe" and method == "POST":
+                self._subscribe(conn, actor, data)
+                return
+            if path == "/api/requests" and method == "GET":
+                self._list_requests(conn, actor)
+                return
             if path == "/api/settings" and method == "GET":
                 self._get_settings(conn, actor)
                 return
@@ -202,6 +283,8 @@ class Handler(BaseHTTPRequestHandler):
                     self._set_active(conn, actor, user_id, data)
                 elif action == "password":
                     self._set_password(conn, actor, user_id, data)
+                elif action == "access":
+                    self._set_access(conn, actor, user_id, data)
                 else:
                     self._send(404, {"error": "Não encontrado."})
                 return
@@ -236,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
     def _list_users(self, conn, actor):
         if not self._require_admin(actor):
             return
-        rows = conn.execute("SELECT id, username, name, role, active FROM users ORDER BY name").fetchall()
+        rows = conn.execute("SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users ORDER BY name").fetchall()
         self._send(200, {"users": [public_user(row) for row in rows]})
 
     def _create_user(self, conn, actor, data):
@@ -262,17 +345,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             cur = conn.execute(
                 """
-                INSERT INTO users(username, name, role, salt, password_hash, active, created_at)
-                VALUES (?, ?, ?, ?, ?, 1, ?)
+                INSERT INTO users(username, name, role, salt, password_hash, active, created_at, trial_ends_at)
+                VALUES (?, ?, ?, ?, ?, 1, ?, ?)
                 """,
-                (username, name, role, salt, digest, int(time.time())),
+                (username, name, role, salt, digest, int(time.time()), int(time.time()) + TRIAL_DAYS * DAY),
             )
             conn.commit()
         except sqlite3.IntegrityError:
             self._send(409, {"error": "Já existe um usuário com esse login."})
             return
         row = conn.execute(
-            "SELECT id, username, name, role, active FROM users WHERE id = ?",
+            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (cur.lastrowid,),
         ).fetchone()
         self._send(200, {"user": public_user(row)})
@@ -323,6 +406,92 @@ class Handler(BaseHTTPRequestHandler):
         rows = conn.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (actor["id"],)).fetchall()
         self._send(200, {"settings": {row["key"]: row["value"] for row in rows}})
 
+    def _subscribe(self, conn, actor, data):
+        """Registra o pedido de assinatura e devolve o link de pagamento, quando configurado."""
+        plan = str(data.get("plan", "")).strip()
+        if plan not in PLANS:
+            self._send(400, {"error": "Plano inválido."})
+            return
+        conn.execute(
+            "INSERT INTO subscription_requests(user_id, plan, created_at) VALUES (?, ?, ?)",
+            (actor["id"], plan, int(time.time())),
+        )
+        conn.commit()
+        link = PLANS[plan]["link"]
+        self._send(
+            200,
+            {
+                "requested": True,
+                "checkout_url": link,
+                "message": CHECKOUT_MESSAGE if not link else "",
+            },
+        )
+
+    def _list_requests(self, conn, actor):
+        if not self._require_admin(actor):
+            return
+        rows = conn.execute(
+            """
+            SELECT r.id, r.plan, r.created_at, r.status, u.name, u.username
+            FROM subscription_requests r
+            JOIN users u ON u.id = r.user_id
+            ORDER BY r.created_at DESC
+            LIMIT 200
+            """
+        ).fetchall()
+        self._send(
+            200,
+            {
+                "requests": [
+                    {
+                        "id": row["id"],
+                        "plan": row["plan"],
+                        "plan_label": PLANS.get(row["plan"], {}).get("label", row["plan"]),
+                        "created_at": row["created_at"],
+                        "status": row["status"],
+                        "name": row["name"],
+                        "username": row["username"],
+                    }
+                    for row in rows
+                ]
+            },
+        )
+
+    def _set_access(self, conn, actor, user_id, data):
+        """Libera ou encerra o acesso de alguém (usado depois de confirmar o pagamento)."""
+        if not self._require_admin(actor):
+            return
+        row = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if row is None:
+            self._send(404, {"error": "Usuário não encontrado."})
+            return
+        days = data.get("days", 0)
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            self._send(400, {"error": "Informe os dias."})
+            return
+        if days < 0 or days > 3650:
+            self._send(400, {"error": "Dias inválidos."})
+            return
+        plan = str(data.get("plan", "")).strip()
+        current = conn.execute("SELECT paid_until FROM users WHERE id = ?", (user_id,)).fetchone()["paid_until"]
+        base = max(int(current or 0), int(time.time()))
+        paid_until = base + days * DAY if days else 0
+        conn.execute(
+            "UPDATE users SET paid_until = ?, plan = ? WHERE id = ?",
+            (paid_until, plan if days else "", user_id),
+        )
+        conn.execute(
+            "UPDATE subscription_requests SET status = 'concluido' WHERE user_id = ? AND status = 'pendente'",
+            (user_id,),
+        )
+        conn.commit()
+        fresh = conn.execute(
+            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        self._send(200, {"user": public_user(fresh)})
     def _save_settings(self, conn, actor, data):
         changes = data.get("settings")
         if not isinstance(changes, dict):
@@ -367,7 +536,7 @@ class Handler(BaseHTTPRequestHandler):
         conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, actor["id"]))
         conn.commit()
         row = conn.execute(
-            "SELECT id, username, name, role, active FROM users WHERE id = ?",
+            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (actor["id"],),
         ).fetchone()
         self._send(200, {"user": public_user(row)})

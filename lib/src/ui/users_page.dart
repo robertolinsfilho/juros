@@ -46,6 +46,21 @@ class _UsersPageState extends State<UsersPage> {
     }
   }
 
+  Future<void> access(SessionUser user) async {
+    final days = await showDialog<int>(
+      context: context,
+      builder: (context) => _AccessDialog(user: user),
+    );
+    if (days == null) return;
+    try {
+      await widget.auth.setAccess(widget.token, user.id, days: days, plan: days > 0 ? 'mensal' : '');
+      if (mounted) showError(context, days > 0 ? 'Acesso liberado por $days dias.' : 'Acesso encerrado.');
+      reload();
+    } on AuthException catch (error) {
+      if (mounted) showError(context, error.message);
+    }
+  }
+
   Future<void> password(SessionUser user) async {
     final next = await askPassword(context, 'Nova senha de ${user.name}');
     if (next == null) return;
@@ -81,28 +96,85 @@ class _UsersPageState extends State<UsersPage> {
               return Panel(child: Text(message));
             }
             final users = snapshot.data ?? const <SessionUser>[];
-            return Panel(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  for (final user in users)
-                    RecordTile(
-                      title: user.name,
-                      subtitle: '${user.username} · ${user.roleLabel}${user.active ? '' : ' · desativado'}',
-                      actions: [
-                        TextButton(
-                          onPressed: () => role(user),
-                          child: Text(user.isAdmin ? 'Tornar comum' : 'Tornar admin'),
-                        ),
-                        if (user.id != widget.selfId) TextButton(onPressed: () => password(user), child: const Text('Senha')),
-                        TextButton(
-                          onPressed: () => toggle(user),
-                          child: Text(user.active ? 'Desativar' : 'Reativar'),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (users.any((user) => user.access.status != 'assinante')) ...[
+                  Panel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Pedidos de assinatura', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        FutureBuilder(
+                          future: widget.auth.requests(widget.token),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) return const Text('Carregando...', style: TextStyle(color: AppColors.muted));
+                            final items = snapshot.data!;
+                            if (items.isEmpty) {
+                              return const Text('Nenhum pedido ainda.', style: TextStyle(color: AppColors.muted));
+                            }
+                            return Column(
+                              children: [
+                                for (final item in items.take(6))
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${item.name} · ${item.planLabel}',
+                                            style: const TextStyle(fontSize: 13),
+                                          ),
+                                        ),
+                                        Text(
+                                          item.status == 'pendente' ? 'pendente' : 'concluído',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: item.status == 'pendente' ? AppColors.amber : AppColors.green,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
+                Panel(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (final user in users)
+                        RecordTile(
+                          title: user.name,
+                          subtitle:
+                              '${user.username} · ${user.roleLabel} · '
+                              '${user.access.label}${user.access.daysLeft > 0 ? ' (${user.access.daysLeft}d)' : ''}'
+                              '${user.active ? '' : ' · desativado'}',
+                          actions: [
+                            TextButton(onPressed: () => access(user), child: const Text('Acesso')),
+                            TextButton(
+                              onPressed: () => role(user),
+                              child: Text(user.isAdmin ? 'Tornar comum' : 'Tornar admin'),
+                            ),
+                            if (user.id != widget.selfId)
+                              TextButton(onPressed: () => password(user), child: const Text('Senha')),
+                            TextButton(
+                              onPressed: () => toggle(user),
+                              child: Text(user.active ? 'Desativar' : 'Reativar'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -200,8 +272,65 @@ class _UserDialogState extends State<_UserDialog> {
   }
 }
 
-Future<String?> askPassword(BuildContext context, String title) {
-  final controller = TextEditingController();
+class _AccessDialog extends StatefulWidget {
+  const _AccessDialog({required this.user});
+
+  final SessionUser user;
+
+  @override
+  State<_AccessDialog> createState() => _AccessDialogState();
+}
+
+class _AccessDialogState extends State<_AccessDialog> {
+  int days = 31;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Acesso de ${widget.user.name}'),
+      content: SizedBox(
+        width: dialogWidth(context, 380),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hoje: ${widget.user.access.label}'
+              '${widget.user.access.daysLeft > 0 ? ' · ${widget.user.access.daysLeft} dia(s)' : ''}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in const [(31, '1 mês'), (92, '3 meses'), (365, '1 ano'), (0, 'Encerrar')])
+                  ChoiceChip(
+                    label: Text(option.$2),
+                    selected: days == option.$1,
+                    onSelected: (_) => setState(() => days = option.$1),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              days == 0
+                  ? 'O acesso será encerrado na hora e a pessoa volta a ver a tela de planos.'
+                  : 'Libera $days dias de acesso a partir de hoje.',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(onPressed: () => Navigator.pop(context, days), child: const Text('Confirmar')),
+      ],
+    );
+  }
+}
+
+Future<String?> askPassword(BuildContext context, String title) {  final controller = TextEditingController();
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(

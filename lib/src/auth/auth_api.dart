@@ -4,6 +4,57 @@ import 'package:http/http.dart' as http;
 
 import 'api_base.dart';
 
+class AccessInfo {
+  const AccessInfo({
+    required this.status,
+    required this.daysLeft,
+    required this.trialEndsAt,
+    required this.paidUntil,
+    required this.plan,
+    required this.blocked,
+  });
+
+  static const free = AccessInfo(
+    status: 'teste',
+    daysLeft: 3,
+    trialEndsAt: 0,
+    paidUntil: 0,
+    plan: '',
+    blocked: false,
+  );
+
+  /// teste, assinante ou vencido.
+  final String status;
+  final int daysLeft;
+  final int trialEndsAt;
+  final int paidUntil;
+  final String plan;
+  final bool blocked;
+
+  bool get trial => status == 'teste';
+  bool get subscriber => status == 'assinante';
+
+  String get label => switch (status) {
+    'assinante' => 'Assinatura ativa',
+    'vencido' => 'Acesso vencido',
+    _ => 'Teste gratuito',
+  };
+
+  String get daysText => daysLeft == 1 ? '1 dia restante' : '$daysLeft dias restantes';
+
+  factory AccessInfo.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return free;
+    return AccessInfo(
+      status: json['status'] as String? ?? 'teste',
+      daysLeft: (json['days_left'] as num?)?.toInt() ?? 0,
+      trialEndsAt: (json['trial_ends_at'] as num?)?.toInt() ?? 0,
+      paidUntil: (json['paid_until'] as num?)?.toInt() ?? 0,
+      plan: json['plan'] as String? ?? '',
+      blocked: json['blocked'] == true,
+    );
+  }
+}
+
 class SessionUser {
   const SessionUser({
     required this.id,
@@ -11,6 +62,7 @@ class SessionUser {
     required this.name,
     required this.role,
     required this.active,
+    this.access = AccessInfo.free,
   });
 
   final int id;
@@ -18,6 +70,7 @@ class SessionUser {
   final String name;
   final String role;
   final bool active;
+  final AccessInfo access;
 
   bool get isAdmin => role == 'admin';
 
@@ -30,6 +83,7 @@ class SessionUser {
       name: json['name'] as String,
       role: json['role'] as String,
       active: json['active'] == true || json['active'] == 1,
+      access: AccessInfo.fromJson(json['access'] as Map<String, dynamic>?),
     );
   }
 }
@@ -74,6 +128,38 @@ class AuthApi {
   /// Valor nulo apaga o ajuste no servidor.
   Future<void> saveSettings(String token, Map<String, String?> changes) async {
     await _send('POST', '/api/settings', token: token, body: {'settings': changes});
+  }
+
+  /// Registra o pedido de assinatura. Devolve o link de pagamento quando configurado,
+  /// ou uma mensagem para falar com o suporte.
+  Future<({String checkoutUrl, String message})> subscribe(String token, String plan) async {
+    final json = await _send('POST', '/api/subscribe', token: token, body: {'plan': plan});
+    return (
+      checkoutUrl: json['checkout_url'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+    );
+  }
+
+  Future<List<({int id, String name, String username, String planLabel, int createdAt, String status})>>
+  requests(String token) async {
+    final json = await _send('GET', '/api/requests', token: token);
+    return [
+      for (final item in json['requests'] as List<dynamic>)
+        (
+          id: ((item as Map)['id'] as num).toInt(),
+          name: item['name'] as String,
+          username: item['username'] as String,
+          planLabel: item['plan_label'] as String,
+          createdAt: (item['created_at'] as num).toInt(),
+          status: item['status'] as String,
+        ),
+    ];
+  }
+
+  /// Libera (ou encerra, com zero dias) o acesso de alguém.
+  Future<SessionUser> setAccess(String token, int id, {required int days, String plan = ''}) async {
+    final json = await _send('POST', '/api/users/$id/access', token: token, body: {'days': days, 'plan': plan});
+    return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
   }
 
   Future<void> logout(String token) async {

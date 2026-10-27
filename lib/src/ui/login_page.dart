@@ -74,6 +74,20 @@ class _LoginPageState extends State<LoginPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.muted),
                   ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.green.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.green.withValues(alpha: 0.35)),
+                    ),
+                    child: const Text(
+                      '3 dias grátis ao criar a conta',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                   const SizedBox(height: 28),
                   Panel(
                     child: Column(

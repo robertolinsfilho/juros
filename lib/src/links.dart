@@ -1,6 +1,8 @@
 import 'format.dart';
 import 'links_web.dart' if (dart.library.ffi) 'links_io.dart';
 
+export 'links_web.dart' if (dart.library.ffi) 'links_io.dart' show openExternal;
+
 Future<bool> openWhatsApp({required String phone, required String message}) {
   final digits = digitsOnly(phone);
   if (digits.isEmpty) return Future.value(false);

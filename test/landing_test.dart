@@ -14,7 +14,7 @@ void main() {
   for (final size in const [Size(1400, 900), Size(390, 800)]) {
     testWidgets('home renderiza sem estouro em ${size.width.toInt()}px', (tester) async {
       await open(tester, size, () {});
-      expect(find.text('Entrar no sistema'), findsWidgets);
+      expect(find.textContaining('Começar 3 dias grátis'), findsWidgets);
       await tester.scrollUntilVisible(find.text('Perguntas frequentes'), 600, scrollable: find.byType(Scrollable).first);
       await tester.tap(find.text('Funciona no celular?'));
       await tester.pumpAndSettle();
@@ -28,7 +28,7 @@ void main() {
     await open(tester, const Size(1400, 900), () => taps++);
     await tester.tap(find.text('Acessar'));
     await tester.tap(find.text('Entrar'));
-    await tester.tap(find.text('Entrar no sistema').first);
+    await tester.tap(find.textContaining('Começar 3 dias grátis').first);
     expect(taps, 3);
   });
 

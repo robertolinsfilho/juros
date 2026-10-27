@@ -8,13 +8,16 @@ import 'ui/cash_page.dart';
 import 'ui/clients_page.dart';
 import 'ui/collections_page.dart';
 import 'ui/dashboard_page.dart';
+import 'ui/widgets.dart';
 import 'ui/landing_page.dart';
-import 'ui/brand.dart';
 import 'ui/loans_page.dart';
+import 'ui/brand.dart';
+import 'ui/plans_dialog.dart';
 import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
 import 'ui/reports_page.dart';
 import 'ui/settings_page.dart';
+import 'ui/trial_widgets.dart';
 import 'ui/trash_page.dart';
 import 'ui/users_page.dart';
 
@@ -68,8 +71,11 @@ class _JurosAppState extends State<JurosApp> {
 
   void reloadScale() => setState(() => scale = widget.repo.fontScale);
 
-  Future<void> enter(SessionUser next, String nextToken) async {
-    widget.repo.setSetting('session_token', nextToken);
+  Future<void> subscribe(SessionUser current) async {
+    await showPlansDialog(context, auth: auth, token: token, daysLeft: current.access.daysLeft);
+  }
+
+  Future<void> enter(SessionUser next, String nextToken) async {    widget.repo.setSetting('session_token', nextToken);
     setState(() => checking = true);
     await sync.start(nextToken);
     if (!mounted) return;
@@ -127,7 +133,7 @@ class _JurosAppState extends State<JurosApp> {
       );
     }
     return switch (currentSection) {
-      0 => DashboardPage(repo: widget.repo),
+      0 => DashboardPage(repo: widget.repo, daysLeft: current.access.daysLeft, onSubscribe: () => subscribe(current)),
       1 => CollectionsPage(repo: widget.repo),
       2 => ClientsPage(repo: widget.repo),
       3 => LoansPage(repo: widget.repo),
@@ -158,6 +164,8 @@ class _JurosAppState extends State<JurosApp> {
               ? (showLogin
                   ? LoginPage(auth: auth, onSuccess: enter, onBack: () => setState(() => showLogin = false))
                   : LandingPage(onEnter: () => setState(() => showLogin = true)))
+              : current.access.blocked
+              ? _Expired(onSubscribe: () => subscribe(current), onLogout: leave)
               : _Shell(
                   user: current,
                   section: visibleSection(current),
@@ -165,8 +173,59 @@ class _JurosAppState extends State<JurosApp> {
                   onSelected: (id) => setState(() => section = id),
                   onProfile: () => setState(() => section = 9),
                   onLogout: leave,
+                  onSubscribe: () => subscribe(current),
                   child: page(current),
                 ),
+    );
+  }
+}
+
+class _Expired extends StatelessWidget {
+  const _Expired({required this.onSubscribe, required this.onLogout});
+
+  final VoidCallback onSubscribe;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AccessColors.orange.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_clock, color: AccessColors.orange),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Seu período de teste terminou', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Assine para voltar a cadastrar clientes, criar empréstimos e cobrar pelo WhatsApp. '
+                    'Seus dados continuam guardados neste aparelho.',
+                    style: TextStyle(color: AppColors.muted, height: 1.5),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(onPressed: onSubscribe, child: const Text('Ver planos e assinar')),
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: onLogout, child: const Text('Sair')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -179,6 +238,7 @@ class _Shell extends StatelessWidget {
     required this.onSelected,
     required this.onProfile,
     required this.onLogout,
+    required this.onSubscribe,
     required this.child,
   });
 
@@ -188,60 +248,89 @@ class _Shell extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final VoidCallback onProfile;
   final VoidCallback onLogout;
+  final VoidCallback onSubscribe;
   final Widget child;
+
+  /// Texto da faixa laranja no topo. Some quando a assinatura está em dia.
+  String? get trialText {
+    final access = user.access;
+    if (access.blocked) return 'Teste gratuito encerrado — assine para voltar a usar';
+    if (access.trial || access.daysLeft <= 7) {
+      return 'Teste gratuito — ${access.daysText}';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final banner = trialText;
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= 900;
-          final page = Column(
+          Widget page() => Column(
             children: [
               _AccountBar(user: user, profileOpen: section == 9, onProfile: onProfile, onLogout: onLogout),
               Expanded(child: child),
             ],
           );
-          if (!wide) {
-            return Column(
-              children: [
-                Expanded(child: SafeArea(bottom: false, child: page)),
-                _SectionBar(
-                  selected: section,
-                  destinations: destinations,
-                  onSelected: onSelected,
-                ),
-              ],
-            );
-          }
-          final extended = constraints.maxWidth >= 1180;
-          final navIndex = destinations.indexWhere((item) => item.$3 == section);
-          return Row(
+          final body = wide
+              ? _wide(constraints)
+              : Column(
+                  children: [
+                    Expanded(child: SafeArea(bottom: false, child: page())),
+                    _SectionBar(
+                      selected: section,
+                      destinations: destinations,
+                      onSelected: onSelected,
+                    ),
+                  ],
+                );
+          if (banner == null) return body;
+          return Column(
             children: [
-              NavigationRail(
-                backgroundColor: AppColors.sidebar,
-                extended: extended,
-                selectedIndex: navIndex < 0 ? null : navIndex,
-                onDestinationSelected: (index) => onSelected(destinations[index].$3),
-                labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-                leading: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: BrandName(size: 32, showName: extended),
-                  ),
-                ),
-                destinations: [
-                  for (final item in destinations)
-                    NavigationRailDestination(icon: Icon(item.$1), label: Text(item.$2)),
-                ],
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(child: page),
+              SafeArea(bottom: false, child: TrialBar(text: banner, onSubscribe: onSubscribe)),
+              Expanded(child: body),
             ],
           );
         },
       ),
+    );
+  }
+
+  Widget _wide(BoxConstraints constraints) {
+    final extended = constraints.maxWidth >= 1180;
+    final navIndex = destinations.indexWhere((item) => item.$3 == section);
+    return Row(
+      children: [
+        NavigationRail(
+          backgroundColor: AppColors.sidebar,
+          extended: extended,
+          selectedIndex: navIndex < 0 ? null : navIndex,
+          onDestinationSelected: (index) => onSelected(destinations[index].$3),
+          labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+          leading: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: BrandName(size: 32, showName: extended),
+            ),
+          ),
+          destinations: [
+            for (final item in destinations)
+              NavigationRailDestination(icon: Icon(item.$1), label: Text(item.$2)),
+          ],
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: Column(
+            children: [
+              _AccountBar(user: user, profileOpen: section == 9, onProfile: onProfile, onLogout: onLogout),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

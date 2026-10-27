@@ -256,7 +256,11 @@ class _Hero extends StatelessWidget {
               style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18)),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text('Entrar no sistema'), SizedBox(width: 8), Icon(Icons.arrow_forward, size: 16)],
+                children: [
+                  Flexible(child: Text('Começar 3 dias grátis', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 16),
+                ],
               ),
             ),
             OutlinedButton.icon(
@@ -269,7 +273,7 @@ class _Hero extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Parcelas calculadas sozinhas · Funciona no celular e no computador',
+          'Parcelas calculadas sozinhas · 3 dias grátis · Funciona no celular e no computador',
           style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
       ],
@@ -1099,7 +1103,7 @@ class _Cta extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Entre com o seu usuário e comece pelo primeiro cliente.',
+            'Comece agora e use 3 dias grátis. Depois, a partir de R\$ 49,99 por mês.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.muted, fontSize: 15),
           ),
@@ -1107,7 +1111,7 @@ class _Cta extends StatelessWidget {
           FilledButton(
             onPressed: onEnter,
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18)),
-            child: const Text('Entrar no sistema'),
+            child: const Text('Começar 3 dias grátis'),
           ),
         ],
       ),

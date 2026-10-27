@@ -7,12 +7,15 @@ import '../messages/builders.dart';
 import '../theme.dart';
 import 'client_form.dart';
 import 'loan_form.dart';
+import 'trial_widgets.dart';
 import 'widgets.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key, required this.repo});
+  const DashboardPage({super.key, required this.repo, this.daysLeft, this.onSubscribe});
 
   final Repo repo;
+  final int? daysLeft;
+  final VoidCallback? onSubscribe;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -53,6 +56,10 @@ class _DashboardPageState extends State<DashboardPage> {
             FilledButton.icon(onPressed: createLoan, icon: const Icon(Icons.add), label: const Text('Novo empréstimo')),
           ],
         ),
+        if (widget.onSubscribe != null && widget.daysLeft != null) ...[
+          TrialNotice(daysLeft: widget.daysLeft!, onSubscribe: widget.onSubscribe!),
+          const SizedBox(height: 16),
+        ],
         if (cash.low) ...[
           const SizedBox(height: 16),
           Panel(
