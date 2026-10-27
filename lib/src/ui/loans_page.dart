@@ -4,6 +4,7 @@ import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
 import '../links.dart';
+import 'loan_edit.dart';
 import 'loan_form.dart';
 import 'widgets.dart';
 
@@ -33,6 +34,21 @@ class _LoansPageState extends State<LoansPage> {
 
   Future<void> create() async {
     if (await showLoanForm(context, widget.repo) && mounted) setState(() {});
+  }
+
+  Future<void> edit(LoanRecord loan) async {
+    if (await showLoanEdit(context, widget.repo, loan) && mounted) setState(() {});
+  }
+
+  Future<void> remove(LoanRecord loan) async {
+    final ok = await confirmAction(
+      context,
+      'Excluir empréstimo',
+      'O contrato de ${loan.clientName} vai para a lixeira e fica lá por 30 dias.',
+    );
+    if (!ok || !mounted) return;
+    widget.repo.deleteLoan(loan.id);
+    setState(() {});
   }
 
   @override
@@ -128,6 +144,21 @@ class _LoansPageState extends State<LoansPage> {
                 actions: [
                   StatusPill(label: loan.displayStatus),
                   Text(loan.nextDue == null ? fmtMoney(loan.openCents) : '${fmtDateIso(loan.nextDue!)} · ${fmtMoney(loan.openCents)}'),
+                  PopupMenuButton<String>(
+                    tooltip: 'Mais opções',
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) => value == 'editar' ? edit(loan) : remove(loan),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'editar',
+                        child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.edit_outlined), title: Text('Editar')),
+                      ),
+                      PopupMenuItem(
+                        value: 'excluir',
+                        child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.delete_outline), title: Text('Excluir')),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -175,6 +206,10 @@ class _LoanDetail extends StatelessWidget {
     if (!opened && context.mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
   }
 
+  Future<void> edit(BuildContext context) async {
+    if (await showLoanEdit(context, repo, loan)) onChanged();
+  }
+
   Future<void> lose(BuildContext context) async {
     final ok = await confirmAction(context, 'Marcar como perdido', 'As parcelas em aberto saem da carteira.');
     if (!ok) return;
@@ -202,6 +237,7 @@ class _LoanDetail extends StatelessWidget {
           actions: [
             OutlinedButton(onPressed: onBack, child: const Text('Voltar')),
             if (loan.status == 'aberto') OutlinedButton(onPressed: () => lose(context), child: const Text('Marcar perdido')),
+            OutlinedButton(onPressed: () => edit(context), child: const Text('Editar')),
             OutlinedButton(onPressed: () => remove(context), child: const Text('Excluir')),
           ],
         ),

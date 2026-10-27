@@ -773,6 +773,121 @@ class Repo {
     );
   }
 
+  bool loanHasPayments(int loanId) {
+    final rows = db.select(
+      'SELECT COUNT(*) AS total FROM installments WHERE loan_id = ? AND paid_at IS NOT NULL',
+      [loanId],
+    );
+    return (rows.first['total'] as int) > 0;
+  }
+
+  /// Reconstrói os dados de criação a partir do contrato salvo.
+  LoanDraft? draftOf(int loanId) {
+    final rows = db.select('SELECT * FROM loans WHERE id = ?', [loanId]);
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final charge = (row['charge_frequency'] as String?) ?? '';
+    return LoanDraft(
+      clientId: row['client_id'] as int,
+      principalCents: row['principal_cents'] as int,
+      rateBps: row['rate_bps'] as int,
+      rateMode: RateModeLabel.parse(row['rate_mode'] as String),
+      contractMode: ContractModeLabel.parse(row['contract_mode'] as String),
+      frequency: FrequencyLabel.parse(row['frequency'] as String),
+      intervalDays: row['interval_days'] as int,
+      count: row['installment_count'] as int,
+      contractDate: parseIsoDate(row['contract_date'] as String),
+      skipSaturday: (row['skip_saturday'] as int) == 1,
+      skipSunday: (row['skip_sunday'] as int) == 1,
+      skipHoliday: (row['skip_holiday'] as int) == 1,
+      lateMode: row['late_mode'] as String,
+      latePercentBps: row['late_percent_bps'] as int,
+      lateDailyCents: row['late_daily_cents'] as int,
+      lateFixedCents: row['late_fixed_cents'] as int,
+      notes: row['notes'] as String,
+      skipWeekdays: row['skip_weekdays'] as int,
+      fixedInstallment: (row['fixed_installment'] as int) == 1,
+      chargeFrequency: charge.isEmpty ? null : FrequencyLabel.parse(charge),
+    );
+  }
+
+  /// Atualiza um contrato. Com [rebuild], valor, taxa, prazo e datas são
+  /// recalculados e as parcelas são substituídas (só vale sem pagamentos).
+  /// Sem [rebuild], só mora, dias sem cobrança e observações mudam.
+  void updateLoan(int loanId, LoanDraft draft, {required bool rebuild}) {
+    if (rebuild && loanHasPayments(loanId)) {
+      throw StateError('Contrato com parcelas pagas não pode ser recalculado.');
+    }
+    db.execute('BEGIN');
+    try {
+      if (rebuild) {
+        final plan = buildSchedule(draft);
+        db.execute(
+          '''
+          UPDATE loans SET principal_cents = ?, rate_bps = ?, rate_mode = ?, frequency = ?,
+            interval_days = ?, installment_count = ?, contract_date = ?, skip_saturday = ?,
+            skip_sunday = ?, skip_holiday = ?, skip_weekdays = ?, late_mode = ?,
+            late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?
+          WHERE id = ?
+          ''',
+          [
+            draft.principalCents,
+            draft.rateBps,
+            draft.rateMode.code,
+            draft.frequency.code,
+            draft.intervalDays,
+            plan.length,
+            isoDate(draft.contractDate),
+            draft.skipSaturday ? 1 : 0,
+            draft.skipSunday ? 1 : 0,
+            draft.skipHoliday ? 1 : 0,
+            draft.skipWeekdays,
+            draft.lateMode,
+            draft.latePercentBps,
+            draft.lateDailyCents,
+            draft.lateFixedCents,
+            draft.notes.trim(),
+            loanId,
+          ],
+        );
+        db.execute('DELETE FROM installments WHERE loan_id = ?', [loanId]);
+        for (final item in plan) {
+          db.execute(
+            '''
+            INSERT INTO installments(loan_id, number, due_date, principal_cents, interest_cents, status)
+            VALUES(?, ?, ?, ?, ?, 'aberta')
+            ''',
+            [loanId, item.number, isoDate(item.due), item.principalCents, item.interestCents],
+          );
+        }
+      } else {
+        db.execute(
+          '''
+          UPDATE loans SET skip_saturday = ?, skip_sunday = ?, skip_holiday = ?, skip_weekdays = ?,
+            late_mode = ?, late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?
+          WHERE id = ?
+          ''',
+          [
+            draft.skipSaturday ? 1 : 0,
+            draft.skipSunday ? 1 : 0,
+            draft.skipHoliday ? 1 : 0,
+            draft.skipWeekdays,
+            draft.lateMode,
+            draft.latePercentBps,
+            draft.lateDailyCents,
+            draft.lateFixedCents,
+            draft.notes.trim(),
+            loanId,
+          ],
+        );
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
   void restoreLoan(int loanId) {
     db.execute('UPDATE loans SET deleted_at = NULL WHERE id = ?', [loanId]);
   }
