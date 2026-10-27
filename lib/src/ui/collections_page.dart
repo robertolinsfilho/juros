@@ -40,18 +40,12 @@ class _CollectionsPageState extends State<CollectionsPage> {
   }
 
   Future<void> charge(InstallmentRecord item) async {
-    final late = item.liveLateCents(DateTime.now());
     final opened = await openWhatsApp(
       phone: item.clientPhone,
       message: chargeMessage(
-        client: item.clientName,
-        number: item.number,
-        count: item.count,
-        cents: item.faceCents + late,
-        dueIso: item.dueDate,
+        item,
         creditor: widget.repo.setting('creditor_name'),
         pix: widget.repo.setting('pix_key'),
-        lateCents: late,
       ),
     );
     if (!opened && mounted) showError(context, 'Não foi possível abrir o WhatsApp.');

@@ -4,13 +4,17 @@ import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
 import 'client_form.dart';
+import 'loan_created.dart';
 import 'widgets.dart';
 
-Future<bool> showLoanForm(BuildContext context, Repo repo) {
-  return showDialog<bool>(
+Future<bool> showLoanForm(BuildContext context, Repo repo) async {
+  final loanId = await showDialog<int>(
     context: context,
     builder: (context) => _LoanDialog(repo: repo),
-  ).then((value) => value ?? false);
+  );
+  if (loanId == null) return false;
+  if (context.mounted) await showLoanCreated(context, repo, loanId);
+  return true;
 }
 
 class _LoanDialog extends StatefulWidget {
@@ -217,8 +221,8 @@ class _LoanDialogState extends State<_LoanDialog> {
           : 'Escolha o cliente e informe valor, taxa e parcelas.');
       return;
     }
-    widget.repo.createLoan(current);
-    Navigator.pop(context, true);
+    final id = widget.repo.createLoan(current);
+    Navigator.pop(context, id);
   }
 
   TextEditingController rowController(PlannedInstallment item) {
@@ -566,7 +570,7 @@ class _LoanDialogState extends State<_LoanDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         FilledButton(onPressed: save, child: const Text('Confirmar e criar empréstimo')),
       ],
     );

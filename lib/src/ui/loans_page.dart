@@ -164,18 +164,12 @@ class _LoanDetail extends StatelessWidget {
   }
 
   Future<void> charge(BuildContext context, InstallmentRecord item) async {
-    final late = item.liveLateCents(DateTime.now());
     final opened = await openWhatsApp(
       phone: item.clientPhone,
       message: chargeMessage(
-        client: item.clientName,
-        number: item.number,
-        count: item.count,
-        cents: item.faceCents + late,
-        dueIso: item.dueDate,
+        item,
         creditor: repo.setting('creditor_name'),
         pix: repo.setting('pix_key'),
-        lateCents: late,
       ),
     );
     if (!opened && context.mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
