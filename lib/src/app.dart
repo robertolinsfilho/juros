@@ -130,10 +130,15 @@ class _JurosAppState extends State<JurosApp> {
         token: token,
         user: current,
         onUpdated: (next) => setState(() => user = next),
+        onSubscribe: () => subscribe(current),
       );
     }
     return switch (currentSection) {
-      0 => DashboardPage(repo: widget.repo, daysLeft: current.access.daysLeft, onSubscribe: () => subscribe(current)),
+      0 => DashboardPage(
+        repo: widget.repo,
+        daysLeft: current.access.subscriber ? null : current.access.daysLeft,
+        onSubscribe: () => subscribe(current),
+      ),
       1 => CollectionsPage(repo: widget.repo),
       2 => ClientsPage(repo: widget.repo),
       3 => LoansPage(repo: widget.repo),
@@ -251,13 +256,16 @@ class _Shell extends StatelessWidget {
   final VoidCallback onSubscribe;
   final Widget child;
 
-  /// Texto da faixa laranja no topo. Some quando a assinatura está em dia.
+  /// Texto da faixa laranja no topo. Some quando o acesso está tranquilo.
   String? get trialText {
     final access = user.access;
     if (access.blocked) return 'Teste gratuito encerrado — assine para voltar a usar';
-    if (access.trial || access.daysLeft <= 7) {
-      return 'Teste gratuito — ${access.daysText}';
+    if (access.subscriber) {
+      if (access.daysLeft > 7) return null;
+      final dias = access.daysLeft == 1 ? '1 dia' : '${access.daysLeft} dias';
+      return 'Sua assinatura termina em $dias';
     }
+    if (access.trial) return 'Teste gratuito — ${access.daysText}';
     return null;
   }
 

@@ -11,12 +11,14 @@ class ProfilePage extends StatefulWidget {
     required this.token,
     required this.user,
     required this.onUpdated,
+    this.onSubscribe,
   });
 
   final AuthApi auth;
   final String token;
   final SessionUser user;
   final ValueChanged<SessionUser> onUpdated;
+  final VoidCallback? onSubscribe;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -109,6 +111,31 @@ class _ProfilePageState extends State<ProfilePage> {
           subtitle: 'Seus dados de acesso',
         ),
         const SizedBox(height: 16),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Assinatura', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(
+                widget.user.access.subscriber
+                    ? 'Assinatura ativa · ${widget.user.access.daysLeft} dia(s) restantes'
+                    : widget.user.access.trial
+                    ? 'Teste gratuito · ${widget.user.access.daysText}'
+                    : 'Teste encerrado',
+                style: const TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: widget.onSubscribe,
+                  child: const Text('Ver planos'),
+                ),              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

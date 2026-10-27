@@ -105,10 +105,15 @@ def ensure_schema(conn):
             conn.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
             upgraded = True
     if upgraded:
-        # Quem já usava o sistema antes do teste de 3 dias mantém o acesso liberado.
+        # Quem administra o sistema não é afetado pelo teste; os demais começam os 3 dias agora.
+        now = int(time.time())
         conn.execute(
-            "UPDATE users SET paid_until = ?, plan = 'cortesia' WHERE paid_until = 0",
-            (int(time.time()) + 3650 * DAY,),
+            "UPDATE users SET paid_until = ?, plan = 'cortesia' WHERE role = 'admin'",
+            (now + 3650 * DAY,),
+        )
+        conn.execute(
+            "UPDATE users SET trial_ends_at = ?, paid_until = 0, plan = '' WHERE role != 'admin'",
+            (now + TRIAL_DAYS * DAY,),
         )
         conn.commit()
     count = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
@@ -145,6 +150,8 @@ def access_of(row, now=None):
     paid_until = int(row["paid_until"] or 0)
     created = int(row["created_at"] or now)
     trial_end = int(row["trial_ends_at"] or 0) or (created + TRIAL_DAYS * DAY)
+    # Administrador nunca fica trancado fora do sistema.
+    admin = row["role"] == "admin"
     if paid_until > now:
         return {
             "status": "assinante",
@@ -169,7 +176,7 @@ def access_of(row, now=None):
         "trial_ends_at": trial_end,
         "paid_until": paid_until,
         "plan": row["plan"] or "",
-        "blocked": True,
+        "blocked": not admin,
     }
 
 
