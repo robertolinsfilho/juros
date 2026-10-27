@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:juros/src/data/repository.dart';
 import 'package:juros/src/domain/schedule.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test('receber a última parcela quita o contrato', () {
-    final repo = Repo.memory();
+    final repo = Repo(sqlite3.openInMemory(), ':memory:');
     addTearDown(repo.close);
     final clientId = repo.saveClient(name: 'Maria', document: '', phone: '86999999999', zip: '', address: '', workAddress: '');
     final loanId = repo.createLoan(

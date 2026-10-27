@@ -1,11 +1,11 @@
 {
-    "name": "juros",
-    "short_name": "juros",
+    "name": "Juros",
+    "short_name": "Juros",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0E141B",
+    "theme_color": "#0E141B",
+    "description": "Controle de empréstimos, parcelas e recebimentos.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

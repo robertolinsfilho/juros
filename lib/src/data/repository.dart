@@ -1,7 +1,4 @@
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../domain/schedule.dart';
 import '../format.dart';
@@ -271,25 +268,19 @@ class Repo {
     _ensure();
   }
 
-  final Database db;
+  final CommonDatabase db;
   final String dbPath;
-
-  factory Repo.open() {
-    final root = Platform.environment['APPDATA'] ?? Directory.current.path;
-    final dir = Directory(p.join(root, 'Juros'));
-    dir.createSync(recursive: true);
-    final path = p.join(dir.path, 'juros.db');
-    return Repo(sqlite3.open(path), path);
-  }
-
-  factory Repo.memory() => Repo(sqlite3.openInMemory(), ':memory:');
 
   void close() => db.close();
 
   void _ensure() {
     db.execute('PRAGMA foreign_keys = ON');
-    db.execute('PRAGMA journal_mode = WAL');
-    db.execute('PRAGMA synchronous = NORMAL');
+    try {
+      db.execute('PRAGMA journal_mode = WAL');
+      db.execute('PRAGMA synchronous = NORMAL');
+    } catch (_) {
+      db.execute('PRAGMA journal_mode = DELETE');
+    }
     db.execute('''
       CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY,

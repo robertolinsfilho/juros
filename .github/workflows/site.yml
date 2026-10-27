@@ -1,0 +1,30 @@
+name: site
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release
+      - name: Publica o site
+        run: |
+          cd build/web
+          git init -b site
+          git add .
+          git -c user.name="Roberto Lins" -c user.email="36731226+robertolinsfilho@users.noreply.github.com" commit -m "Publica o site"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/robertolinsfilho/juros.git"
+          git push --force origin site
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
