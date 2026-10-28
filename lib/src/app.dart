@@ -7,6 +7,7 @@ import 'theme.dart';
 import 'ui/cash_page.dart';
 import 'ui/clients_page.dart';
 import 'ui/collections_page.dart';
+import 'ui/consultas_page.dart';
 import 'ui/dashboard_page.dart';
 import 'ui/widgets.dart';
 import 'ui/landing_page.dart';
@@ -22,6 +23,13 @@ import 'ui/trial_widgets.dart';
 import 'ui/trash_page.dart';
 import 'ui/users_page.dart';
 
+/// A volta do Mercado Pago abre direto na aba de consultas.
+int openingSection() {
+  final flag = Uri.base.queryParameters['consulta'];
+  if (flag == 'ok' || flag == 'pendente') return 10;
+  return 0;
+}
+
 class JurosApp extends StatefulWidget {
   const JurosApp({super.key, required this.repo, this.auth});
 
@@ -35,7 +43,7 @@ class JurosApp extends StatefulWidget {
 class _JurosAppState extends State<JurosApp> {
   late final AuthApi auth = widget.auth ?? AuthApi();
   late final SettingsSync sync = SettingsSync(widget.repo, auth);
-  int section = 0;
+  int section = openingSection();
   late double scale = widget.repo.fontScale;
   SessionUser? user;
   String token = '';
@@ -121,6 +129,7 @@ class _JurosAppState extends State<JurosApp> {
       (Icons.space_dashboard_outlined, 'Dashboard', 0),
       (Icons.notifications_outlined, 'Cobranças', 1),
       (Icons.people_outline, 'Clientes', 2),
+      (Icons.manage_search_outlined, 'Consultas', 10),
       (Icons.receipt_long_outlined, 'Empréstimos', 3),
       (Icons.account_balance_wallet_outlined, 'Caixa', 4),
       (Icons.bar_chart_outlined, 'Relatórios', 5),
@@ -156,6 +165,7 @@ class _JurosAppState extends State<JurosApp> {
       1 => CollectionsPage(repo: widget.repo),
       2 => ClientsPage(repo: widget.repo),
       3 => LoansPage(repo: widget.repo),
+      10 => ConsultasPage(auth: auth, token: token),
       4 => CashPage(repo: widget.repo),
       5 => ReportsPage(repo: widget.repo),
       6 => TrashPage(repo: widget.repo),

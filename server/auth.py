@@ -147,6 +147,343 @@ def checkout_url(preference):
     return preference.get("init_point") or ""
 
 
+CONSULTA_API = os.environ.get("CONSULTA_API_URL", "https://gateway.apibrasil.io/api/v2").rstrip("/")
+
+
+def consulta_token():
+    return os.environ.get("CONSULTA_API_TOKEN", "").strip()
+
+
+# Preço de vitrine em centavos. O custo fica na APIBrasil; o cliente paga aqui, no Mercado Pago.
+CONSULTAS = {
+    "localizador": {
+        "title": "Localizador",
+        "summary": "Encontra a pessoa a partir do telefone ou do e-mail.",
+        "cents": 990,
+        "inputs": [{"id": "telefone", "label": "Telefone"}, {"id": "email", "label": "E-mail"}],
+        "bullets": ["Nome e CPF de quem aparece na busca", "Telefones e e-mails ligados ao contato", "Endereços quando a base tiver"],
+        "calls": {
+            "telefone": {"path": "/consulta/cpf/credits", "tipo": "enriquecimento-de-lead", "field": "telefone"},
+            "email": {"path": "/consulta/cpf/credits", "tipo": "enriquecimento-de-lead", "field": "email"},
+        },
+    },
+    "dossie": {
+        "title": "Dossiê",
+        "summary": "Cadastro, pendências, protestos, empresas e telefones.",
+        "cents": 1990,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Dados na Receita e identificação", "Pendências financeiras e protestos", "Empresas e telefones"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "dossie-credito-pf", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "dossie-credito-pj", "field": "cnpj"},
+        },
+    },
+    "protestos": {
+        "title": "Protestos",
+        "summary": "Protestos em cartório, com cidade, data e valor.",
+        "cents": 990,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Protestos ativos", "Cartório, cidade e UF", "Datas e valores"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "protestos-nacional-base", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "pessoa-juridica-protesto", "field": "cnpj"},
+        },
+    },
+    "rating": {
+        "title": "Rating de crédito",
+        "summary": "Score, risco, pendências, protestos e cheques sem fundo.",
+        "cents": 2990,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Score e risco", "Pendências e protestos", "Cheques sem fundo e ações"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "restricoes-score-pf", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "restricoes-score-pj", "field": "cnpj"},
+        },
+    },
+    "cadastro": {
+        "title": "Cadastro",
+        "summary": "Identidade, situação cadastral e contatos.",
+        "cents": 500,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Identidade e situação cadastral", "Endereços e telefones", "E-mails quando a base tiver"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "cpf-hotline", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "cnpj-cadastral", "field": "cnpj"},
+        },
+    },
+    "essencial": {
+        "title": "Essencial positivo",
+        "summary": "Situação do CPF, score, protestos, pendências e contatos.",
+        "cents": 1090,
+        "inputs": [{"id": "cpf", "label": "CPF"}],
+        "bullets": ["Situação do CPF na Receita", "Score, protestos e pendências", "Telefones, e-mails e endereços"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "acerta-essencial-positivo", "field": "cpf"},
+        },
+    },
+    "bacen": {
+        "title": "Resumo BACEN",
+        "summary": "SCR do Banco Central: responsabilidade, modalidades e instituições.",
+        "cents": 1390,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Mês de referência e responsabilidade total", "Operações por modalidade", "Instituições e operações sub judice"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "scr-bacen-score", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "scr-bacen-score", "field": "cnpj"},
+        },
+    },
+}
+
+
+def digits_only(value):
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def cpf_ok(digits):
+    if len(digits) != 11 or digits == digits[0] * 11:
+        return False
+
+    def dv(base):
+        total = sum(int(digit) * factor for digit, factor in zip(base, range(len(base) + 1, 1, -1)))
+        rest = (total * 10) % 11
+        return 0 if rest == 10 else rest
+
+    return dv(digits[:9]) == int(digits[9]) and dv(digits[:10]) == int(digits[10])
+
+
+def cnpj_ok(digits):
+    if len(digits) != 14 or digits == digits[0] * 14:
+        return False
+
+    def dv(base, weights):
+        rest = sum(int(digit) * weight for digit, weight in zip(base, weights)) % 11
+        return 0 if rest < 2 else 11 - rest
+
+    first = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    second = [6, *first]
+    return dv(digits[:12], first) == int(digits[12]) and dv(digits[:13], second) == int(digits[13])
+
+
+def prepare_consulta(slug, document, search_type):
+    """Confere o produto e o documento. Não fala com o fornecedor."""
+    item = CONSULTAS.get(str(slug or "").strip())
+    if item is None:
+        return None, "Consulta inválida."
+    kind = str(search_type or "").strip().lower()
+    call = item["calls"].get(kind)
+    if call is None:
+        return None, "Escolha CPF, CNPJ, telefone ou e-mail."
+    raw = str(document or "").strip()
+    field = call["field"]
+    if field == "email":
+        value = raw.lower()
+        if not EMAIL.match(value):
+            return None, "Informe um e-mail válido."
+    elif field == "telefone":
+        value = digits_only(raw)
+        if len(value) not in (10, 11):
+            return None, "Informe um telefone com DDD."
+    elif field == "cpf":
+        value = digits_only(raw)
+        if not cpf_ok(value):
+            return None, "Informe um CPF válido."
+    elif field == "cnpj":
+        value = digits_only(raw)
+        if not cnpj_ok(value):
+            return None, "Informe um CNPJ válido."
+    else:
+        return None, "Consulta inválida."
+    return {"slug": slug, "search_type": kind, "document": value, "cents": item["cents"], "title": item["title"]}, ""
+
+
+def consulta_catalog():
+    return [
+        {
+            "slug": slug,
+            "title": item["title"],
+            "summary": item["summary"],
+            "cents": item["cents"],
+            "inputs": item["inputs"],
+            "bullets": item["bullets"],
+        }
+        for slug, item in CONSULTAS.items()
+    ]
+
+
+def build_consulta_preference(consult_id, title, cents, email=""):
+    """Checkout de uma consulta. A referência não é a de assinatura, para não somar dias de plano."""
+    body = {
+        "items": [
+            {
+                "id": f"consulta-{consult_id}",
+                "title": f"Acertaí Finanças — {title}",
+                "quantity": 1,
+                "currency_id": "BRL",
+                "unit_price": cents / 100,
+            }
+        ],
+        "external_reference": f"consulta:{consult_id}",
+        "notification_url": f"{PUBLIC_URL}/api/mercadopago/webhook",
+        "back_urls": {
+            "success": f"{PUBLIC_URL}/?consulta=ok",
+            "pending": f"{PUBLIC_URL}/?consulta=pendente",
+            "failure": f"{PUBLIC_URL}/?consulta=falha",
+        },
+        "auto_return": "approved",
+        "statement_descriptor": "ACERTAI",
+        "metadata": {"consult_id": consult_id},
+    }
+    if email:
+        body["payer"] = {"email": email}
+    return body
+
+
+class ConsultaError(Exception):
+    def __init__(self, message, retry=False):
+        super().__init__(message)
+        self.retry = retry
+
+
+def provider_message(text):
+    clean = " ".join(str(text or "").split())
+    lowered = clean.lower()
+    if not clean or len(clean) > 180 or "token" in lowered or "bearer" in lowered:
+        return "A consulta não foi concluída."
+    return clean
+
+
+def run_consulta(slug, search_type, document):
+    """Busca o dossiê na APIBrasil. O token fica só na variável de ambiente."""
+    call = CONSULTAS[slug]["calls"][search_type]
+    token = consulta_token()
+    if not token:
+        raise ConsultaError("As consultas ainda não estão ligadas ao fornecedor.", retry=True)
+    payload = {"tipo": call["tipo"], call["field"]: document}
+    request = urllib.request.Request(
+        CONSULTA_API + call["path"],
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=40) as response:
+            loaded = json.loads(response.read().decode())
+    except urllib.error.HTTPError as error:
+        print(f"consulta http {error.code}", flush=True)
+        if error.code == 402:
+            raise ConsultaError("O saldo do fornecedor acabou. Tente de novo sem pagar outra vez.", retry=True) from error
+        if error.code == 404:
+            raise ConsultaError("Nenhum dado encontrado para esta consulta.") from error
+        if error.code in (408, 429, 500, 502, 503, 504):
+            raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
+        raise ConsultaError("A consulta não foi concluída.") from error
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
+        print(f"consulta rede {error}", flush=True)
+        raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
+    if not isinstance(loaded, dict) or loaded.get("error") is True:
+        message = provider_message(loaded.get("message") if isinstance(loaded, dict) else "")
+        raise ConsultaError(message)
+    data = loaded.get("data")
+    if not isinstance(data, (dict, list)):
+        raise ConsultaError("A consulta voltou sem dados.", retry=True)
+    return data
+
+
+def consulta_row(row, with_result=False):
+    item = CONSULTAS.get(row["type_slug"], {})
+    body = {
+        "id": row["id"],
+        "slug": row["type_slug"],
+        "title": item.get("title", row["type_slug"]),
+        "search_type": row["search_type"],
+        "document": row["document"],
+        "amount_cents": row["amount_cents"],
+        "status": row["status"],
+        "error": row["error"],
+        "created_at": row["created_at"],
+    }
+    if with_result and row["result_json"]:
+        try:
+            body["result"] = json.loads(row["result_json"])
+        except json.JSONDecodeError:
+            body["result"] = None
+    return body
+
+
+def finish_consulta(conn, row):
+    """Chama o fornecedor uma vez. Outra chamada simultânea encontra o status consultando."""
+    cur = conn.execute(
+        """
+        UPDATE consultations
+        SET status = 'consultando', error = ''
+        WHERE id = ? AND status = 'paga' AND result_json = ''
+        """,
+        (row["id"],),
+    )
+    if cur.rowcount != 1:
+        conn.rollback()
+        return
+    conn.commit()
+    try:
+        data = run_consulta(row["type_slug"], row["search_type"], row["document"])
+    except ConsultaError as error:
+        status = "paga" if error.retry else "falha"
+        conn.execute(
+            "UPDATE consultations SET status = ?, error = ? WHERE id = ?",
+            (status, str(error), row["id"]),
+        )
+        conn.commit()
+        return
+    conn.execute(
+        "UPDATE consultations SET status = 'concluida', result_json = ?, error = '' WHERE id = ?",
+        (json.dumps(data, ensure_ascii=False), row["id"]),
+    )
+    conn.commit()
+
+
+def apply_consulta_payment(conn, payment):
+    """Marca a consulta como paga e dispara a busca. Não mexe na assinatura."""
+    if payment.get("status") != "approved":
+        return "ignored"
+    ref = str(payment.get("external_reference") or "")
+    if not ref.startswith("consulta:"):
+        return "ignored"
+    consult_id = ref.split(":", 1)[1]
+    if not consult_id.isdigit() or payment.get("currency_id") != "BRL":
+        return "ignored"
+    row = conn.execute("SELECT * FROM consultations WHERE id = ?", (int(consult_id),)).fetchone()
+    if row is None:
+        return "ignored"
+    paid = int(round(float(payment.get("transaction_amount") or 0) * 100))
+    if abs(paid - int(row["amount_cents"])) > 1:
+        return "ignored"
+    mp_id = str(payment.get("id") or "")
+    if not mp_id:
+        return "ignored"
+    if row["mp_id"]:
+        return "duplicate" if row["mp_id"] == mp_id else "ignored"
+    now = int(time.time())
+    try:
+        cur = conn.execute(
+            """
+            UPDATE consultations
+            SET status = 'paga', mp_id = ?, paid_at = ?
+            WHERE id = ? AND COALESCE(mp_id, '') = ''
+            """,
+            (mp_id, now, row["id"]),
+        )
+        if cur.rowcount != 1:
+            conn.rollback()
+            return "duplicate"
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return "duplicate"
+    fresh = conn.execute("SELECT * FROM consultations WHERE id = ?", (row["id"],)).fetchone()
+    finish_consulta(conn, fresh)
+    return "applied"
+
+
 def apply_approved_payment(conn, payment):
     """Libera os dias do plano quando o Mercado Pago confirma o valor certo.
 
@@ -236,6 +573,20 @@ def ensure_schema(conn):
           days INTEGER NOT NULL,
           amount_cents INTEGER NOT NULL,
           created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS consultations (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          type_slug TEXT NOT NULL,
+          search_type TEXT NOT NULL,
+          document TEXT NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'aguardando',
+          mp_id TEXT UNIQUE,
+          result_json TEXT NOT NULL DEFAULT '',
+          error TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          paid_at INTEGER NOT NULL DEFAULT 0
         );
         """
     )
@@ -436,6 +787,27 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/users" and method == "POST":
                 self._create_user(conn, actor, data)
+                return
+            if path == "/api/consultas" and method == "GET":
+                self._consultas_get(conn, actor, query)
+                return
+            if path == "/api/consultas" and method == "POST":
+                self._consulta_create(conn, actor, data)
+                return
+            parts = path.split("/")
+            if (
+                len(parts) == 5
+                and parts[1] == "api"
+                and parts[2] == "consultas"
+                and parts[4] == "buscar"
+                and method == "POST"
+            ):
+                try:
+                    consult_id = int(parts[3])
+                except ValueError:
+                    self._send(404, {"error": "Consulta não encontrada."})
+                    return
+                self._consulta_retry(conn, actor, consult_id)
                 return
             parts = path.split("/")
             if len(parts) == 5 and parts[1] == "api" and parts[2] == "users" and method == "POST":
@@ -680,7 +1052,11 @@ class Handler(BaseHTTPRequestHandler):
         except MercadoPagoError:
             self._send(500, {"error": "Não foi possível confirmar o pagamento."})
             return
-        apply_approved_payment(conn, payment)
+        ref = str(payment.get("external_reference") or "")
+        if ref.startswith("consulta:"):
+            apply_consulta_payment(conn, payment)
+        else:
+            apply_approved_payment(conn, payment)
         self._send(200, {"ok": True})
 
     def _list_requests(self, conn, actor):
@@ -818,6 +1194,92 @@ class Handler(BaseHTTPRequestHandler):
             conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         conn.commit()
         self._send(200, {"ok": True})
+
+    def _consultas_get(self, conn, actor, query):
+        ident = (query.get("id") or [""])[0]
+        if ident:
+            if not str(ident).isdigit():
+                self._send(404, {"error": "Consulta não encontrada."})
+                return
+            row = conn.execute(
+                "SELECT * FROM consultations WHERE id = ? AND user_id = ?",
+                (int(ident), actor["id"]),
+            ).fetchone()
+            if row is None:
+                self._send(404, {"error": "Consulta não encontrada."})
+                return
+            self._send(200, {"consulta": consulta_row(row, with_result=True)})
+            return
+        rows = conn.execute(
+            """
+            SELECT * FROM consultations
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 100
+            """,
+            (actor["id"],),
+        ).fetchall()
+        self._send(
+            200,
+            {
+                "provider": bool(consulta_token()),
+                "products": consulta_catalog(),
+                "history": [consulta_row(row) for row in rows],
+            },
+        )
+
+    def _consulta_create(self, conn, actor, data):
+        prepared, message = prepare_consulta(data.get("slug"), data.get("document"), data.get("search_type"))
+        if prepared is None:
+            self._send(400, {"error": message})
+            return
+        if not consulta_token():
+            self._send(503, {"error": "As consultas ainda não estão ligadas ao fornecedor. O pagamento não foi aberto."})
+            return
+        if not mp_token():
+            self._send(503, {"error": "O checkout do Mercado Pago ainda não está configurado."})
+            return
+        now = int(time.time())
+        cur = conn.execute(
+            """
+            INSERT INTO consultations(user_id, type_slug, search_type, document, amount_cents, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (actor["id"], prepared["slug"], prepared["search_type"], prepared["document"], prepared["cents"], now),
+        )
+        conn.commit()
+        consult_id = cur.lastrowid
+        email = actor["email"] if "email" in actor.keys() else ""
+        try:
+            preference = mp_json(
+                "POST",
+                "/checkout/preferences",
+                build_consulta_preference(consult_id, prepared["title"], prepared["cents"], email),
+            )
+        except MercadoPagoError:
+            self._send(502, {"error": "Não foi possível abrir o checkout do Mercado Pago."})
+            return
+        link = checkout_url(preference)
+        if not link:
+            self._send(502, {"error": "O Mercado Pago não devolveu o checkout."})
+            return
+        self._send(200, {"id": consult_id, "checkout_url": link})
+
+    def _consulta_retry(self, conn, actor, consult_id):
+        row = conn.execute(
+            "SELECT * FROM consultations WHERE id = ? AND user_id = ?",
+            (consult_id, actor["id"]),
+        ).fetchone()
+        if row is None:
+            self._send(404, {"error": "Consulta não encontrada."})
+            return
+        if not row["mp_id"] or row["status"] == "aguardando":
+            self._send(400, {"error": "Esta consulta ainda não foi paga."})
+            return
+        if row["status"] == "paga":
+            finish_consulta(conn, row)
+            row = conn.execute("SELECT * FROM consultations WHERE id = ?", (consult_id,)).fetchone()
+        self._send(200, {"consulta": consulta_row(row, with_result=True)})
 
     def _send(self, code, payload):
         body = json.dumps(payload, ensure_ascii=False).encode()

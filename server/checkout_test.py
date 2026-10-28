@@ -84,6 +84,57 @@ def main():
     assert auth.apply_approved_payment(conn, payment()) == "duplicate"
     again = conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"]
     assert again == paid_until["paid_until"]
+
+    assert auth.apply_approved_payment(conn, payment(external_reference="consulta:1", transaction_amount=10.9)) == "ignored"
+    assert conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"] == paid_until["paid_until"]
+
+    prepared, error = auth.prepare_consulta("essencial", "111.444.777-35", "cpf")
+    assert error == "" and prepared["cents"] == 1090 and prepared["document"] == "11144477735"
+    assert auth.prepare_consulta("essencial", "111.111.111-11", "cpf")[0] is None
+    assert auth.prepare_consulta("localizador", "maria@example.com", "email")[0]["document"] == "maria@example.com"
+    assert auth.prepare_consulta("localizador", "11987654321", "telefone")[0]["search_type"] == "telefone"
+    assert auth.prepare_consulta("protestos", "11.222.333/0001-81", "cnpj")[0] is not None
+
+    body = auth.build_consulta_preference(9, "Localizador", 990, "maria@example.com")
+    assert body["external_reference"] == "consulta:9"
+    assert round(body["items"][0]["unit_price"] * 100) == 990
+    assert "consulta=ok" in body["back_urls"]["success"]
+    assert body["payer"]["email"] == "maria@example.com"
+
+    conn.execute(
+        """
+        CREATE TABLE consultations (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          type_slug TEXT NOT NULL,
+          search_type TEXT NOT NULL,
+          document TEXT NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'aguardando',
+          mp_id TEXT UNIQUE,
+          result_json TEXT NOT NULL DEFAULT '',
+          error TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          paid_at INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO consultations(id, user_id, type_slug, search_type, document, amount_cents, created_at)
+        VALUES (9, 7, 'localizador', 'email', 'maria@example.com', 990, ?)
+        """,
+        (int(time.time()),),
+    )
+    paid_before = conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"]
+    os.environ["CONSULTA_API_TOKEN"] = ""
+    assert auth.apply_consulta_payment(conn, payment(id=2002, transaction_amount=1, external_reference="consulta:9")) == "ignored"
+    assert auth.apply_consulta_payment(conn, payment(id=2002, transaction_amount=9.9, external_reference="consulta:9")) == "applied"
+    row = conn.execute("SELECT status, mp_id, paid_at FROM consultations WHERE id = 9").fetchone()
+    assert row["mp_id"] == "2002"
+    assert row["status"] in ("paga", "falha", "consultando")
+    assert conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"] == paid_before
+    assert auth.apply_consulta_payment(conn, payment(id=2002, transaction_amount=9.9, external_reference="consulta:9")) == "duplicate"
     print("ok")
 
 

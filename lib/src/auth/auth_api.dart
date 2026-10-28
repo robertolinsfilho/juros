@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../consultas.dart';
 import 'api_base.dart';
 
 class AccessInfo {
@@ -232,6 +233,40 @@ class AuthApi {
       'password': password,
       'current': ?current,
     });
+  }
+
+  Future<ConsultaBoard> consultas(String token) async {
+    final json = await _send('GET', '/api/consultas', token: token);
+    return ConsultaBoard.fromJson(json);
+  }
+
+  /// Abre o checkout de uma consulta. A busca só roda depois que o Mercado Pago confirma.
+  Future<({int id, String checkoutUrl})> startConsulta(
+    String token, {
+    required String slug,
+    required String document,
+    required String searchType,
+  }) async {
+    final json = await _send('POST', '/api/consultas', token: token, body: {
+      'slug': slug,
+      'document': document,
+      'search_type': searchType,
+    });
+    return (
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      checkoutUrl: json['checkout_url'] as String? ?? '',
+    );
+  }
+
+  Future<ConsultaRecord> consulta(String token, int id) async {
+    final json = await _send('GET', '/api/consultas?id=$id', token: token);
+    return ConsultaRecord.fromJson(json['consulta'] as Map<String, dynamic>);
+  }
+
+  /// Repete a busca de uma consulta já paga, sem abrir outro checkout.
+  Future<ConsultaRecord> retryConsulta(String token, int id) async {
+    final json = await _send('POST', '/api/consultas/$id/buscar', token: token);
+    return ConsultaRecord.fromJson(json['consulta'] as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> _send(
