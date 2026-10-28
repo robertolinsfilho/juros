@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -669,34 +670,181 @@ class ResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final blocks = _blocks(value, 0);
-    if (blocks.isEmpty) {
+    final root = _prepare(value);
+    final score = _firstScore(root);
+    final cards = _cards(root);
+    if (score == null && cards.isEmpty) {
       return const Text('A consulta não trouxe registros.', style: TextStyle(color: AppColors.muted));
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: blocks);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (score != null) _ScoreBanner(score: score.$1, note: score.$2),
+        ...cards,
+      ],
+    );
+  }
+}
+
+class _ScoreBanner extends StatelessWidget {
+  const _ScoreBanner({required this.score, this.note});
+
+  final String score;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.green.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          Text(score, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.green)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Score', style: TextStyle(fontWeight: FontWeight.w700)),
+                if (note != null && note!.isNotEmpty) Text(note!, style: const TextStyle(color: AppColors.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  const _ResultCard({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      decoration: BoxDecoration(
+        color: AppColors.cardAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 132,
+            child: Text(label, style: const TextStyle(color: AppColors.muted, height: 1.35)),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35))),
+        ],
+      ),
+    );
   }
 }
 
 const _labels = {
   'credcadastral': 'Crédito',
+  'dadosCadastrais': 'Dados cadastrais',
   'dados_receita_federal': 'Receita Federal',
   'identificacao_pessoa_fisica': 'Identificação',
   'informacoes_da_empresa': 'Empresa',
-  'pend_financeiras': 'Pendências',
-  'protestos': 'Protestos',
-  'protesto_sintetico': 'Protestos',
-  'scores': 'Score',
-  'score': 'Score',
+  'nome': 'Nome',
+  'nomeCompleto': 'Nome',
+  'nomeMae': 'Nome da mãe',
+  'nomePai': 'Nome do pai',
+  'cpf': 'CPF',
+  'cnpj': 'CNPJ',
+  'rg': 'RG',
+  'dataNascimento': 'Nascimento',
+  'data_nascimento': 'Nascimento',
+  'sexo': 'Sexo',
+  'estadoCivil': 'Estado civil',
+  'situacaoCPF': 'Situação do CPF',
+  'situacao': 'Situação',
+  'cep': 'CEP',
+  'bairro': 'Bairro',
+  'cidade': 'Cidade',
+  'uf': 'UF',
+  'endereco': 'Endereço',
+  'enderecos': 'Endereços',
+  'logradouro': 'Logradouro',
+  'numero': 'Número',
+  'complemento': 'Complemento',
+  'email': 'E-mail',
   'emails': 'E-mails',
+  'telefone': 'Telefone',
+  'telefones': 'Telefones',
+  'celular': 'Celular',
   'somente_telefone': 'Telefones',
   'somente_endereco': 'Endereços',
-  'ch_sem_fundos_bacen': 'Cheques sem fundo',
-  'acoes_civeis': 'Ações',
+  'score': 'Score',
+  'scores': 'Score',
+  'texto': 'Descrição',
+  'probabilidade': 'Probabilidade',
+  'classificacao': 'Classificação',
+  'classe': 'Classe',
+  'risco': 'Risco',
+  'protestos': 'Protestos',
+  'protesto_sintetico': 'Protestos',
+  'pend_financeiras': 'Pendências',
+  'pendencias': 'Pendências',
+  'valor': 'Valor',
+  'data': 'Data',
+  'dataOcorrencia': 'Data',
+  'cartorio': 'Cartório',
+  'dadosCartorio': 'Cartório',
+  'quantidade': 'Quantidade',
+  'origem': 'Origem',
+  'contrato': 'Contrato',
+  'modalidade': 'Modalidade',
+  'credor': 'Credor',
+  'empresa': 'Empresa',
+  'razaoSocial': 'Razão social',
+  'nomeFantasia': 'Nome fantasia',
   'quadro_societario': 'Sócios',
+  'acoes_civeis': 'Ações',
+  'acoesCiveis': 'Ações',
+  'chequesSemFundo': 'Cheques sem fundo',
+  'ch_sem_fundos_bacen': 'Cheques sem fundo',
   'scrBacen': 'BACEN',
   'titulos': 'Títulos',
-  'dadosCartorio': 'Cartório',
   'pdf': 'Relatório',
+  'descricao': 'Descrição',
+  'mensagem': 'Mensagem',
+  'observacao': 'Observação',
 };
 
 const _hidden = {
@@ -705,59 +853,316 @@ const _hidden = {
   'providerId',
   'provedorReserva',
   'prioridade',
+  'homolog',
+  'api_limit_for',
+  'balance',
+  'tax',
+  'valor_consulta',
 };
 
-List<Widget> _blocks(Object? value, int depth) {
-  if (value == null || depth > 5) return const [];
-  if (value is Map) {
-    final children = <Widget>[];
-    for (final entry in value.entries) {
-      final key = entry.key.toString();
-      if (_hidden.contains(key)) continue;
-      final inner = entry.value;
-      if (inner == null || inner == '' || inner is List && inner.isEmpty || inner is Map && inner.isEmpty) continue;
-      if (key == 'pdf' && inner is String && inner.startsWith('https://')) {
-        children.add(
-          TextButton(
-            onPressed: () => openExternal(Uri.parse(inner)),
-            child: const Text('Abrir PDF'),
-          ),
-        );
-        continue;
-      }
-      final title = _labels[key] ?? _human(key);
-      final nested = _blocks(inner, depth + 1);
-      if (nested.isEmpty && inner is! String && inner is! num && inner is! bool) continue;
-      children.add(
-        Padding(
-          padding: EdgeInsets.only(left: depth * 8, bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600)),
-              if (inner is String || inner is num || inner is bool) Text('$inner') else ...nested,
-            ],
-          ),
-        ),
-      );
-    }
-    return children;
-  }
-  if (value is List) {
-    final shown = value.take(12);
-    return [
-      for (final item in shown) ..._blocks(item, depth + 1),
-      if (value.length > 12)
-        Text('e mais ${value.length - 12}', style: const TextStyle(color: AppColors.muted)),
-    ];
-  }
-  return [Text('$value')];
+const _unwrapKeys = {
+  'dados',
+  'data',
+  'response',
+  'resultado',
+  'retorno',
+  'consultaCredito',
+  'acertaEssencialPositivo',
+  'acertaEssencial',
+  'dossieCreditoPf',
+  'dossieCreditoPj',
+};
+
+const _scoreKeys = {'score', 'scorepositivo', 'pontuacao', 'scoring'};
+
+const _noteKeys = {'texto', 'descricao', 'classificacao', 'classe', 'risco', 'mensagem'};
+
+Object? _decode(Object? value) {
+  if (value is! String) return value;
+  final text = value.trim();
+  if (!text.startsWith('{') && !text.startsWith('[')) return value;
+  try {
+    final decoded = jsonDecode(text);
+    if (decoded is Map || decoded is List) return decoded;
+  } catch (_) {}
+  return value;
 }
 
-String _human(String key) {
-  final words = key.replaceAll('_', ' ').trim();
-  if (words.isEmpty) return key;
-  return words[0].toUpperCase() + words.substring(1);
+bool _blank(Object? value) {
+  if (value == null) return true;
+  if (value is String) {
+    final text = value.trim();
+    if (text.isEmpty) return true;
+    final tree = _decode(value);
+    if (tree is Map || tree is List) return _blank(tree);
+    return false;
+  }
+  if (value is List) return value.every(_blank);
+  if (value is Map) return _entries(value).isEmpty;
+  return false;
+}
+
+List<MapEntry> _entries(Map map) {
+  return [
+    for (final entry in map.entries)
+      if (!_hidden.contains(entry.key.toString()) && !_blank(entry.value)) entry,
+  ];
+}
+
+Object? _prepare(Object? value) {
+  var current = _decode(value);
+  for (var step = 0; step < 8; step++) {
+    if (current is List && current.length == 1) {
+      final only = _decode(current.first);
+      if (only is Map || only is List) {
+        current = only;
+        continue;
+      }
+    }
+    if (current is Map) {
+      final entries = _entries(current);
+      if (entries.length == 1 && _unwrapKeys.contains(entries.first.key.toString())) {
+        final inner = _decode(entries.first.value);
+        if (inner is Map || inner is List) {
+          current = inner;
+          continue;
+        }
+      }
+    }
+    break;
+  }
+  return current;
+}
+
+(String, String?)? _firstScore(Object? value, [int depth = 0]) {
+  if (value == null || depth > 6) return null;
+  final current = _decode(value);
+  if (current is Map) {
+    for (final entry in current.entries) {
+      if (_scoreKeys.contains(entry.key.toString().toLowerCase())) {
+        final found = _scoreValue(entry.value);
+        if (found != null) return found;
+      }
+    }
+    for (final entry in current.entries) {
+      final found = _firstScore(entry.value, depth + 1);
+      if (found != null) return found;
+    }
+  } else if (current is List) {
+    for (final item in current) {
+      final found = _firstScore(item, depth + 1);
+      if (found != null) return found;
+    }
+  }
+  return null;
+}
+
+(String, String?)? _scoreValue(Object? value) {
+  if (value is num) return (_plainNumber(value), null);
+  if (value is String && num.tryParse(value.trim()) != null) return (value.trim(), null);
+  if (value is! Map) return null;
+  Object? number;
+  String? note;
+  for (final entry in value.entries) {
+    final key = entry.key.toString().toLowerCase();
+    if (number == null && (_scoreKeys.contains(key) || key == 'valor' || key == 'pontos')) {
+      if (entry.value is num || entry.value is String) number = entry.value;
+    }
+    if (note == null && _noteKeys.contains(key) && entry.value is String && (entry.value as String).trim().isNotEmpty) {
+      note = (entry.value as String).trim();
+    }
+  }
+  if (number is num) return (_plainNumber(number), note);
+  if (number is String && number.trim().isNotEmpty) return (number.trim(), note);
+  return null;
+}
+
+String _plainNumber(num value) {
+  if (value is double && value == value.roundToDouble()) return '${value.round()}';
+  return '$value';
+}
+
+List<Widget> _cards(Object? value) {
+  final current = _decode(value);
+  if (current is List) {
+    final body = _nodes(current);
+    if (body.isEmpty) return const [];
+    return [_ResultCard(title: 'Registros', children: body)];
+  }
+  if (current is Map) {
+    final scalars = <Widget>[];
+    final blocks = <Widget>[];
+    for (final entry in _entries(current)) {
+      final key = entry.key.toString();
+      final inner = _decode(entry.value);
+      if (_isPdf(key, inner)) {
+        blocks.add(_pdfButton(inner as String));
+        continue;
+      }
+      if (inner is Map || inner is List) {
+        final children = _nodes(inner);
+        if (children.isEmpty) continue;
+        blocks.add(_ResultCard(title: _label(key), children: children));
+      } else if (inner != null && !_blank(inner)) {
+        scalars.add(_FieldRow(label: _label(key), value: _show(key, inner)));
+      }
+    }
+    return [
+      if (scalars.isNotEmpty) _ResultCard(title: 'Dados', children: scalars),
+      ...blocks,
+    ];
+  }
+  if (current == null || _blank(current)) return const [];
+  return [
+    _ResultCard(title: 'Dados', children: [_FieldRow(label: 'Resultado', value: _show('resultado', current))]),
+  ];
+}
+
+List<Widget> _nodes(Object? value) {
+  final current = _decode(value);
+  if (current is List) {
+    final visible = current.where((item) => !_blank(item)).toList();
+    final shown = visible.take(20).toList();
+    final widgets = <Widget>[];
+    for (var i = 0; i < shown.length; i++) {
+      final item = _decode(shown[i]);
+      if (i > 0) widgets.add(const Divider(height: 18));
+      if (item is Map) {
+        final title = _recordTitle(item, i);
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ));
+        widgets.addAll(_mapFields(item, skipTitle: title));
+      } else if (item is List) {
+        widgets.addAll(_nodes(item));
+      } else if (item != null) {
+        widgets.add(Text(_show('item', item), style: const TextStyle(fontWeight: FontWeight.w600)));
+      }
+    }
+    if (visible.length > shown.length) {
+      widgets.add(Text('e mais ${visible.length - shown.length}', style: const TextStyle(color: AppColors.muted)));
+    }
+    return widgets;
+  }
+  if (current is Map) return _mapFields(current);
+  if (current == null || _blank(current)) return const [];
+  return [Text(_show('item', current), style: const TextStyle(fontWeight: FontWeight.w600))];
+}
+
+List<Widget> _mapFields(Map map, {String? skipTitle}) {
+  final widgets = <Widget>[];
+  for (final entry in _entries(map)) {
+    final key = entry.key.toString();
+    final inner = _decode(entry.value);
+    if (skipTitle != null && inner is String && inner.trim() == skipTitle) continue;
+    if (_isPdf(key, inner)) {
+      widgets.add(Align(alignment: Alignment.centerLeft, child: _pdfButton(inner as String)));
+      continue;
+    }
+    if (inner is Map || inner is List) {
+      final children = _nodes(inner);
+      if (children.isEmpty) continue;
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text(_label(key), style: const TextStyle(color: AppColors.blue, fontWeight: FontWeight.w700)),
+        ),
+      );
+      widgets.addAll(children);
+    } else if (inner != null && !_blank(inner)) {
+      widgets.add(_FieldRow(label: _label(key), value: _show(key, inner)));
+    }
+  }
+  return widgets;
+}
+
+String _recordTitle(Map map, int index) {
+  for (final key in ['nome', 'nomeCompleto', 'razaoSocial', 'nomeFantasia', 'cartorio', 'empresa', 'credor', 'descricao']) {
+    final value = map[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  return 'Registro ${index + 1}';
+}
+
+bool _isPdf(String key, Object? value) {
+  if (value is! String) return false;
+  final text = value.trim();
+  if (!text.startsWith('https://') && !text.startsWith('http://')) return false;
+  final norm = key.toLowerCase();
+  return norm.contains('pdf') || text.toLowerCase().contains('.pdf');
+}
+
+Widget _pdfButton(String url) {
+  final uri = Uri.tryParse(url.trim());
+  return TextButton(
+    onPressed: uri == null ? null : () => openExternal(uri),
+    child: const Text('Abrir PDF'),
+  );
+}
+
+String _label(String key) {
+  final known = _labels[key];
+  if (known != null) return known;
+  final spaced = key
+      .replaceAllMapped(RegExp(r'([a-zá-ú])([A-Z])'), (match) => '${match[1]} ${match[2]}')
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (spaced.isEmpty) return key;
+  return spaced[0].toUpperCase() + spaced.substring(1);
+}
+
+String _show(String key, Object value) {
+  if (value is bool) return value ? 'Sim' : 'Não';
+  if (value is num && _isMoney(key)) return fmtMoney((value * 100).round());
+  if (value is num) return _plainNumber(value);
+  final text = value.toString().trim();
+  if (_isMoney(key)) {
+    final cents = _moneyCents(text);
+    if (cents != null) return fmtMoney(cents);
+  }
+  final digits = text.replaceAll(RegExp(r'\D'), '');
+  final norm = key.toLowerCase();
+  if (norm.contains('cpf') && digits.length == 11) return _maskDocument(digits);
+  if (norm.contains('cnpj') && digits.length == 14) return _maskDocument(digits);
+  if (norm.contains('cep') && digits.length == 8) return '${digits.substring(0, 5)}-${digits.substring(5)}';
+  if (_isPhone(norm) && (digits.length == 10 || digits.length == 11)) return _phone(digits);
+  final date = _date(norm, text);
+  if (date != null) return date;
+  return text;
+}
+
+bool _isMoney(String key) {
+  final norm = key.toLowerCase();
+  return norm.contains('valor') || norm.contains('quantia');
+}
+
+bool _isPhone(String key) {
+  return key.contains('telefone') || key.contains('celular') || key.contains('fone');
+}
+
+int? _moneyCents(String text) {
+  final normalized = text.contains(',') ? text.replaceAll('.', '').replaceAll(',', '.') : text;
+  final parsed = double.tryParse(normalized);
+  if (parsed == null) return null;
+  return (parsed * 100).round();
+}
+
+String? _date(String key, String text) {
+  if (!key.contains('data') && !key.contains('nascimento') && !key.contains('date')) return null;
+  final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(text);
+  if (iso != null) return '${iso[3]}/${iso[2]}/${iso[1]}';
+  final compact = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(text);
+  if (compact != null) return '${compact[3]}/${compact[2]}/${compact[1]}';
+  return null;
+}
+
+String _phone(String digits) {
+  if (digits.length == 11) {
+    return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+  }
+  return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
 }
 
 String _maskDocument(String value) {

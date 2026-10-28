@@ -69,4 +69,59 @@ void main() {
     expect(find.textContaining('não foi aberto'), findsOneWidget);
     expect(posted, isFalse);
   });
+
+  testWidgets('o resultado da consulta aparece em blocos', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: ResultView(
+              value: {
+                'dados': [
+                  {
+                    'acertaEssencialPositivo': {
+                      'consultaCredito': {
+                        'dadosCadastrais': {
+                          'nome': 'MARIA SILVA',
+                          'cpf': '11144477735',
+                          'dataNascimento': '1990-01-02',
+                          'cep': '31030071',
+                          'telefone': '11987654321',
+                        },
+                        'score': {'score': 720, 'texto': 'Baixo risco'},
+                        'protestos': [
+                          {'cartorio': '1º Ofício', 'valor': 1200.5, 'data': '2024-03-12'},
+                        ],
+                        'pdf': 'https://example.com/relatorio.pdf',
+                      },
+                    },
+                  },
+                ],
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dados cadastrais'), findsOneWidget);
+    expect(find.text('MARIA SILVA'), findsOneWidget);
+    expect(find.text('111.444.777-35'), findsOneWidget);
+    expect(find.text('02/01/1990'), findsOneWidget);
+    expect(find.text('31030-071'), findsOneWidget);
+    expect(find.text('(11) 98765-4321'), findsOneWidget);
+    expect(find.text('720'), findsWidgets);
+    expect(find.text('Baixo risco'), findsWidgets);
+    expect(find.text('R\$ 1.200,50'), findsOneWidget);
+    expect(find.text('12/03/2024'), findsOneWidget);
+    expect(find.text('Abrir PDF'), findsOneWidget);
+    expect(find.text('acertaEssencialPositivo'), findsNothing);
+    expect(find.textContaining('{'), findsNothing);
+  });
 }
