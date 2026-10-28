@@ -44,6 +44,7 @@ ThemeData buildTheme() {
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    fontFamilyFallback: const ['NotoEmoji'],
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.bg,
     appBarTheme: const AppBarTheme(
