@@ -679,6 +679,28 @@ def access_of(row, now=None):
     }
 
 
+def cancel_subscription(conn, user_id):
+    """Encerra o acesso pago de quem tem assinatura. Não estorna o Mercado Pago."""
+    row = conn.execute(
+        "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        return None, "Usuário não encontrado."
+    if access_of(row)["status"] != "assinante":
+        return None, "Não há assinatura ativa para cancelar."
+    plan = row["plan"] or ""
+    if row["role"] == "admin" and plan in ("", "cortesia"):
+        return None, "O acesso de administrador não é uma assinatura."
+    conn.execute("UPDATE users SET paid_until = 0, plan = '' WHERE id = ?", (user_id,))
+    conn.commit()
+    fresh = conn.execute(
+        "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    return fresh, ""
+
+
 def public_user(row, now=None):
     return {
         "id": row["id"],
@@ -769,6 +791,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/me" and method == "POST":
                 self._update_profile(conn, actor, data)
+                return
+            if path == "/api/me/cancel" and method == "POST":
+                self._cancel_subscription(conn, actor)
                 return
             if path == "/api/subscribe" and method == "POST":
                 self._subscribe(conn, actor, data)
@@ -1172,6 +1197,13 @@ class Handler(BaseHTTPRequestHandler):
             (actor["id"],),
         ).fetchone()
         self._send(200, {"user": public_user(row)})
+
+    def _cancel_subscription(self, conn, actor):
+        fresh, message = cancel_subscription(conn, actor["id"])
+        if fresh is None:
+            self._send(400, {"error": message})
+            return
+        self._send(200, {"user": public_user(fresh)})
 
     def _set_password(self, conn, actor, user_id, data):
         if actor["id"] != user_id and actor["role"] != "admin":

@@ -31,10 +31,12 @@ class _ProfilePageState extends State<ProfilePage> {
   final confirmPassword = TextEditingController();
   bool savingName = false;
   bool savingPassword = false;
+  bool cancelling = false;
   String? nameError;
   String? nameOk;
   String? passwordError;
   String? passwordOk;
+  String? cancelError;
 
   @override
   void didUpdateWidget(covariant ProfilePage oldWidget) {
@@ -67,6 +69,42 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) setState(() => nameError = error.message);
     } finally {
       if (mounted) setState(() => savingName = false);
+    }
+  }
+
+  bool get canCancel => widget.user.access.subscriber && widget.user.access.plan != 'cortesia';
+
+  Future<void> cancelSubscription() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar assinatura'),
+        content: const Text(
+          'A assinatura encerra agora e os dias restantes deixam de valer. '
+          'O valor já pago no Mercado Pago não é estornado por aqui.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Manter assinatura')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
+            child: const Text('Cancelar assinatura'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      cancelling = true;
+      cancelError = null;
+    });
+    try {
+      final updated = await widget.auth.cancelSubscription(widget.token);
+      widget.onUpdated(updated);
+    } on AuthException catch (error) {
+      if (mounted) setState(() => cancelError = error.message);
+    } finally {
+      if (mounted) setState(() => cancelling = false);
     }
   }
 
@@ -128,10 +166,27 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,
-                child: OutlinedButton(
-                  onPressed: widget.onSubscribe,
-                  child: const Text('Ver planos'),
-                ),              ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton(
+                      onPressed: widget.onSubscribe,
+                      child: const Text('Ver planos'),
+                    ),
+                    if (canCancel)
+                      OutlinedButton(
+                        onPressed: cancelling ? null : cancelSubscription,
+                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.red),
+                        child: Text(cancelling ? 'Cancelando...' : 'Cancelar assinatura'),
+                      ),
+                  ],
+                ),
+              ),
+              if (cancelError != null) ...[
+                const SizedBox(height: 12),
+                Text(cancelError!, style: const TextStyle(color: AppColors.red)),
+              ],
             ],
           ),
         ),

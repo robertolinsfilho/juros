@@ -135,6 +135,42 @@ def main():
     assert row["status"] in ("paga", "falha", "consultando")
     assert conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"] == paid_before
     assert auth.apply_consulta_payment(conn, payment(id=2002, transaction_amount=9.9, external_reference="consulta:9")) == "duplicate"
+
+    now = int(time.time())
+    people = sqlite3.connect(":memory:")
+    people.row_factory = sqlite3.Row
+    people.execute(
+        """
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          username TEXT NOT NULL,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL DEFAULT '',
+          role TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          trial_ends_at INTEGER NOT NULL DEFAULT 0,
+          paid_until INTEGER NOT NULL DEFAULT 0,
+          plan TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+    people.execute(
+        "INSERT INTO users(id, username, name, role, created_at, trial_ends_at, paid_until, plan) VALUES (2, 'op', 'Op', 'comum', ?, 1, ?, 'mensal')",
+        (now - 10 * auth.DAY, now + 20 * auth.DAY),
+    )
+    people.execute(
+        "INSERT INTO users(id, username, name, role, created_at, trial_ends_at, paid_until, plan) VALUES (1, 'admin', 'Admin', 'admin', ?, ?, ?, 'cortesia')",
+        (now, now + 3650 * auth.DAY, now + 3650 * auth.DAY),
+    )
+    fresh, message = auth.cancel_subscription(people, 1)
+    assert fresh is None and "administrador" in message
+    assert people.execute("SELECT paid_until FROM users WHERE id = 1").fetchone()["paid_until"] > now
+    fresh, message = auth.cancel_subscription(people, 2)
+    assert message == "" and fresh["plan"] == "" and fresh["paid_until"] == 0
+    assert auth.access_of(fresh)["status"] == "vencido"
+    again, message = auth.cancel_subscription(people, 2)
+    assert again is None and "ativa" in message
     print("ok")
 
 

@@ -260,7 +260,7 @@ class _Expired extends StatelessWidget {
                     child: const Icon(Icons.lock_clock, color: AccessColors.orange),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Seu período de teste terminou', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const Text('Seu acesso terminou', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
                   const Text(
                     'Assine para voltar a cadastrar clientes, criar empréstimos e cobrar pelo WhatsApp. '

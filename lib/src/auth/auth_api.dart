@@ -223,6 +223,12 @@ class AuthApi {
     await _send('POST', '/api/users/$id/active', token: token, body: {'active': active});
   }
 
+  /// Encerra a assinatura ativa. Os dias restantes deixam de valer.
+  Future<SessionUser> cancelSubscription(String token) async {
+    final json = await _send('POST', '/api/me/cancel', token: token);
+    return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
+  }
+
   Future<SessionUser> updateProfile(String token, {required String name}) async {
     final json = await _send('POST', '/api/me', token: token, body: {'name': name});
     return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
