@@ -138,9 +138,18 @@ def mp_json(method, path, payload=None):
         raise MercadoPagoError("rede") from error
 
 
+def mp_sandbox():
+    """Credencial de teste. No painel novo ela também começa com APP_USR-."""
+    flag = os.environ.get("MERCADOPAGO_SANDBOX", "").strip().lower()
+    if flag in ("1", "true", "sim", "yes", "teste"):
+        return True
+    if flag in ("0", "false", "nao", "não", "no", "producao", "produção"):
+        return False
+    return mp_token().startswith("TEST-")
+
+
 def checkout_url(preference):
-    token = mp_token()
-    if token.startswith("TEST-"):
+    if mp_sandbox():
         return preference.get("sandbox_init_point") or ""
     return preference.get("init_point") or ""
 

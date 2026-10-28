@@ -61,10 +61,14 @@ def main():
     assert body["notification_url"].endswith("/api/mercadopago/webhook")
 
     os.environ["MERCADOPAGO_ACCESS_TOKEN"] = "TEST-exemplo"
+    os.environ.pop("MERCADOPAGO_SANDBOX", None)
     assert auth.checkout_url({"sandbox_init_point": "https://sandbox", "init_point": "https://www"}) == "https://sandbox"
     os.environ["MERCADOPAGO_ACCESS_TOKEN"] = "APP_USR-exemplo"
     assert auth.checkout_url({"sandbox_init_point": "https://sandbox", "init_point": "https://www"}) == "https://www"
+    os.environ["MERCADOPAGO_SANDBOX"] = "1"
+    assert auth.checkout_url({"sandbox_init_point": "https://sandbox", "init_point": "https://www"}) == "https://sandbox"
     del os.environ["MERCADOPAGO_ACCESS_TOKEN"]
+    del os.environ["MERCADOPAGO_SANDBOX"]
 
     conn = memory()
     assert auth.apply_approved_payment(conn, payment(status="pending")) == "ignored"
