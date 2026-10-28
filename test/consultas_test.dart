@@ -58,7 +58,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nenhuma consulta realizada ainda.'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Consultas'));
+    await tester.tap(find.text('Marketplace'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Consultar'));
     await tester.pumpAndSettle();

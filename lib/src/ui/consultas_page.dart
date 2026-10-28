@@ -88,9 +88,25 @@ class _ConsultasPageState extends State<ConsultasPage> {
     return ListView(
       padding: pagePadding(context),
       children: [
-        const PageHeader(
-          title: 'Consultas',
-          subtitle: 'Pague cada consulta no Mercado Pago e o resultado fica aqui.',
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Marketplace de Consultas', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                  SizedBox(height: 4),
+                  Text('Selecione o tipo de consulta desejado', style: TextStyle(color: AppColors.muted)),
+                ],
+              ),
+            ),
+            if (current != null)
+              TextButton(
+                onPressed: () => setState(() => tab = tab == 0 ? 1 : 0),
+                child: Text(tab == 0 ? 'Histórico' : 'Marketplace'),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         if (loading) const LinearProgressIndicator(),
@@ -105,29 +121,11 @@ class _ConsultasPageState extends State<ConsultasPage> {
           ),
           const SizedBox(height: 16),
         ],
-        if (current != null) ...[
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(
-                label: const Text('Consultas'),
-                selected: tab == 0,
-                selectedColor: AppColors.green,
-                labelStyle: TextStyle(color: tab == 0 ? AppColors.greenInk : AppColors.text),
-                onSelected: (_) => setState(() => tab = 0),
-              ),
-              ChoiceChip(
-                label: const Text('Histórico'),
-                selected: tab == 1,
-                selectedColor: AppColors.green,
-                labelStyle: TextStyle(color: tab == 1 ? AppColors.greenInk : AppColors.text),
-                onSelected: (_) => setState(() => tab = 1),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (tab == 0) _Catalog(products: current.products, onOpen: openProduct) else _History(records: current.history, onOpen: openRecord),
-        ],
+        if (current != null)
+          if (tab == 0)
+            _Catalog(products: current.products, onOpen: openProduct)
+          else
+            _History(records: current.history, onOpen: openRecord),
       ],
     );
   }
@@ -154,6 +152,211 @@ class _Notice extends StatelessWidget {
   }
 }
 
+class _Face {
+  const _Face({
+    required this.title,
+    required this.summary,
+    required this.badge,
+    required this.colors,
+    required this.icon,
+  });
+
+  final String title;
+  final String summary;
+  final String badge;
+  final List<Color> colors;
+  final IconData icon;
+}
+
+const _faces = <String, _Face>{
+  'localizador': _Face(
+    title: 'Localizador',
+    summary: 'Encontre pessoas por nome, telefone e e-mail em todo o Brasil',
+    badge: 'CPF',
+    colors: [Color(0xFF1B6EAD), Color(0xFF0E3C68)],
+    icon: Icons.location_on_outlined,
+  ),
+  'dossie': _Face(
+    title: 'Detective',
+    summary: 'Dossiê completo com dados cadastrais, endereços, telefones, veículos e mais',
+    badge: 'CPF',
+    colors: [Color(0xFFC56A14), Color(0xFF8A4510)],
+    icon: Icons.manage_search_outlined,
+  ),
+  'protestos': _Face(
+    title: 'Protestos',
+    summary: 'Consulte protestos ativos em cartórios de todo o Brasil',
+    badge: 'CPF / CNPJ',
+    colors: [Color(0xFFB23B4A), Color(0xFF6E2430)],
+    icon: Icons.gps_fixed,
+  ),
+  'rating': _Face(
+    title: 'Rating de Crédito',
+    summary: 'Score de risco e probabilidade de inadimplência em segundos',
+    badge: 'CPF / CNPJ',
+    colors: [Color(0xFF1B7A45), Color(0xFF0E4A30)],
+    icon: Icons.bar_chart,
+  ),
+  'cadastro': _Face(
+    title: 'Cadastro Plus',
+    summary: 'Dados cadastrais, endereços, telefones e vínculos atualizados',
+    badge: 'CPF / CNPJ',
+    colors: [Color(0xFF0F6A4A), Color(0xFF0A3A30)],
+    icon: Icons.fact_check_outlined,
+  ),
+  'essencial': _Face(
+    title: 'Acerta Essencial Positivo',
+    summary: 'Score Serasa, histórico e indicadores positivos de crédito',
+    badge: 'CPF',
+    colors: [Color(0xFF1A5278), Color(0xFF102C46)],
+    icon: Icons.track_changes,
+  ),
+  'bacen': _Face(
+    title: 'Resumo BACEN',
+    summary: 'Responsabilidade no SCR, modalidades e instituições',
+    badge: 'CPF / CNPJ',
+    colors: [Color(0xFF0E6A78), Color(0xFF0A3A46)],
+    icon: Icons.account_balance_outlined,
+  ),
+};
+
+_Face _faceOf(ConsultaProduct product) {
+  return _faces[product.slug] ??
+      _Face(
+        title: product.title,
+        summary: product.summary,
+        badge: product.inputs.length > 1 ? 'CPF / CNPJ' : 'CPF',
+        colors: const [Color(0xFF1A5278), Color(0xFF102C46)],
+        icon: Icons.manage_search_outlined,
+      );
+}
+
+class _ConsultaCard extends StatelessWidget {
+  const _ConsultaCard({required this.product, required this.onOpen, required this.onExample});
+
+  final ConsultaProduct product;
+  final VoidCallback onOpen;
+  final VoidCallback onExample;
+
+  @override
+  Widget build(BuildContext context) {
+    final face = _faceOf(product);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 188),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: face.colors),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 12,
+            top: 28,
+            child: Icon(face.icon, size: 108, color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(face.badge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(face.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(right: 88),
+                  child: Text(face.summary, style: TextStyle(color: Colors.white.withValues(alpha: 0.82), height: 1.3)),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'A PARTIR DE',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 10, letterSpacing: 0.6, fontWeight: FontWeight.w700),
+                        ),
+                        Text(fmtMoney(product.cents), style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        _Pill(label: 'Exemplo de consulta', onTap: onExample, dark: true),
+                        _Pill(
+                          label: 'Consultar',
+                          onTap: onOpen,
+                          trailing: const Icon(Icons.arrow_forward, size: 14, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.onTap, this.trailing, this.dark = false});
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget? trailing;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: dark ? Colors.black.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              if (trailing != null) ...[const SizedBox(width: 4), trailing!],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Catalog extends StatelessWidget {
   const _Catalog({required this.products, required this.onOpen});
 
@@ -164,37 +367,14 @@ class _Catalog extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth > 980 ? 2 : 1;
-        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+        final columns = constraints.maxWidth > 860 ? 2 : 1;
+        final width = (constraints.maxWidth - (columns - 1) * 16) / columns;
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 16,
+          runSpacing: 16,
           children: [
             for (final product in products)
-              SizedBox(
-                width: width,
-                child: Panel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(product.title, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 6),
-                      Text(product.summary, style: const TextStyle(color: AppColors.muted)),
-                      const SizedBox(height: 12),
-                      Text(fmtMoney(product.cents), style: const TextStyle(color: AppColors.green, fontSize: 22, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton(onPressed: () => _showExample(context, product), child: const Text('O que vem')),
-                          FilledButton(onPressed: () => onOpen(product), child: const Text('Consultar')),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              SizedBox(width: width, child: _ConsultaCard(product: product, onOpen: () => onOpen(product), onExample: () => _showExample(context, product))),
           ],
         );
       },
@@ -213,7 +393,7 @@ class _Catalog extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(product.title, style: Theme.of(context).textTheme.titleLarge),
+                Text(_faceOf(product).title, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(fmtMoney(product.cents), style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
@@ -384,7 +564,7 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.product.title, style: Theme.of(context).textTheme.titleLarge),
+              Text(_faceOf(widget.product).title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(fmtMoney(widget.product.cents), style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
