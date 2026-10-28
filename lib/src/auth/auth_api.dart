@@ -62,6 +62,7 @@ class SessionUser {
     required this.name,
     required this.role,
     required this.active,
+    this.email = '',
     this.access = AccessInfo.free,
   });
 
@@ -70,6 +71,7 @@ class SessionUser {
   final String name;
   final String role;
   final bool active;
+  final String email;
   final AccessInfo access;
 
   bool get isAdmin => role == 'admin';
@@ -83,6 +85,7 @@ class SessionUser {
       name: json['name'] as String,
       role: json['role'] as String,
       active: json['active'] == true || json['active'] == 1,
+      email: json['email'] as String? ?? '',
       access: AccessInfo.fromJson(json['access'] as Map<String, dynamic>?),
     );
   }
@@ -116,11 +119,13 @@ class AuthApi {
   Future<({SessionUser user, String token})> signup({
     required String name,
     required String username,
+    required String email,
     required String password,
   }) async {
     final json = await _send('POST', '/api/signup', body: {
       'name': name.trim(),
       'username': username.trim(),
+      'email': email.trim(),
       'password': password,
     });
     return (

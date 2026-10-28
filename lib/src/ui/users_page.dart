@@ -154,7 +154,7 @@ class _UsersPageState extends State<UsersPage> {
                         RecordTile(
                           title: user.name,
                           subtitle:
-                              '${user.username} · ${user.roleLabel} · '
+                              '${user.username}${user.email.isEmpty ? "" : " · ${user.email}"} · ${user.roleLabel} · '
                               '${user.access.label}${user.access.daysLeft > 0 ? ' (${user.access.daysLeft}d)' : ''}'
                               '${user.active ? '' : ' · desativado'}',
                           actions: [

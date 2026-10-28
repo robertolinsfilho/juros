@@ -19,6 +19,7 @@ class SignupPage extends StatefulWidget {
 
 class _SignupPageState extends State<SignupPage> {
   final name = TextEditingController();
+  final email = TextEditingController();
   final username = TextEditingController();
   final password = TextEditingController();
   final confirm = TextEditingController();
@@ -28,6 +29,7 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void dispose() {
     name.dispose();
+    email.dispose();
     username.dispose();
     password.dispose();
     confirm.dispose();
@@ -37,8 +39,13 @@ class _SignupPageState extends State<SignupPage> {
   Future<void> submit() async {
     if (busy) return;
     final login = username.text.trim().toLowerCase();
+    final mail = email.text.trim().toLowerCase();
     if (name.text.trim().isEmpty) {
       setState(() => error = 'Informe o seu nome.');
+      return;
+    }
+    if (!RegExp(r'^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$').hasMatch(mail)) {
+      setState(() => error = 'Informe um e-mail válido.');
       return;
     }
     if (!RegExp(r'^[a-z0-9._]{3,32}$').hasMatch(login)) {
@@ -58,7 +65,7 @@ class _SignupPageState extends State<SignupPage> {
       error = null;
     });
     try {
-      final result = await widget.auth.signup(name: name.text, username: login, password: password.text);
+      final result = await widget.auth.signup(name: name.text, username: login, email: mail, password: password.text);
       if (!mounted) return;
       widget.onSuccess(result.user, result.token);
     } on AuthException catch (caught) {
@@ -114,6 +121,14 @@ class _SignupPageState extends State<SignupPage> {
                           textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.words,
                           decoration: const InputDecoration(labelText: 'Seu nome'),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: email,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: const InputDecoration(labelText: 'E-mail'),
                         ),
                         const SizedBox(height: 12),
                         TextField(

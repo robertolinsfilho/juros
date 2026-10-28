@@ -56,6 +56,9 @@ def payment(**extra):
 
 def main():
     body = auth.build_preference(7, "mensal", "ano")
+    assert "payer" not in body
+    body = auth.build_preference(7, "mensal", "ano", "maria@example.com")
+    assert body["payer"]["email"] == "maria@example.com"
     assert body["external_reference"] == "7:mensal:ano"
     assert round(body["items"][0]["unit_price"] * 100) == 48000
     assert body["notification_url"].endswith("/api/mercadopago/webhook")

@@ -143,6 +143,10 @@ class _ProfilePageState extends State<ProfilePage> {
               TextField(controller: name, decoration: const InputDecoration(labelText: 'Nome')),
               const SizedBox(height: 12),
               Text('Usuário: ${widget.user.username}', style: const TextStyle(color: AppColors.muted)),
+              if (widget.user.email.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text('E-mail: ${widget.user.email}', style: const TextStyle(color: AppColors.muted)),
+              ],
               const SizedBox(height: 4),
               Text('Nível: ${widget.user.roleLabel}', style: const TextStyle(color: AppColors.muted)),
               if (nameError != null) ...[

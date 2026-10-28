@@ -22,6 +22,7 @@ ITERATIONS = 120_000
 SESSION_SECONDS = 14 * 24 * 60 * 60
 DAY = 24 * 60 * 60
 USERNAME = re.compile(r"^[a-z0-9._]{3,32}$")
+EMAIL = re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
 
 # Preços em centavos. "mes" cobra um mês de acesso; "ano" cobra o valor anual.
 PLANS = {
@@ -84,10 +85,10 @@ def offer_of(plan, period):
     return item["offers"].get(period)
 
 
-def build_preference(user_id, plan, period):
+def build_preference(user_id, plan, period, email=""):
     """Corpo do checkout (Checkout Pro) para um plano e um prazo."""
     offer = offer_of(plan, period)
-    return {
+    body = {
         "items": [
             {
                 "id": f"{plan}-{period}",
@@ -108,6 +109,9 @@ def build_preference(user_id, plan, period):
         "statement_descriptor": "ACERTAI",
         "metadata": {"user_id": user_id, "plan": plan, "period": period},
     }
+    if email:
+        body["payer"] = {"email": email}
+    return body
 
 
 class MercadoPagoError(Exception):
@@ -257,6 +261,9 @@ def ensure_schema(conn):
             (now + TRIAL_DAYS * DAY,),
         )
         conn.commit()
+    if "email" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+        conn.commit()
     count = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
     if count:
         conn.commit()
@@ -328,6 +335,7 @@ def public_user(row, now=None):
         "name": row["name"],
         "role": row["role"],
         "active": bool(row["active"]),
+        "email": row["email"] if "email" in row.keys() else "",
         "access": access_of(row, now),
     }
 
@@ -340,7 +348,7 @@ def current_user(conn, header):
         return None
     row = conn.execute(
         """
-        SELECT u.id, u.username, u.name, u.role, u.active, u.created_at,
+        SELECT u.id, u.username, u.name, u.email, u.role, u.active, u.created_at,
                u.trial_ends_at, u.paid_until, u.plan
         FROM sessions s
         JOIN users u ON u.id = s.user_id
@@ -481,6 +489,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         username = str(data.get("username", "")).strip().lower()
         name = str(data.get("name", "")).strip()
+        email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
         if not USERNAME.fullmatch(username):
             self._send(400, {"error": "Usuário: 3 a 32 letras, números, ponto ou _."})
@@ -488,18 +497,25 @@ class Handler(BaseHTTPRequestHandler):
         if not name or len(name) > 80:
             self._send(400, {"error": "Informe o nome."})
             return
-        if len(password) < 6:
+        if not EMAIL.fullmatch(email) or len(email) > 120:
+            self._send(400, {"error": "Informe um e-mail válido."})
+            return
+        if not password or len(password) < 6:
             self._send(400, {"error": "A senha precisa ter pelo menos 6 caracteres."})
+            return
+        taken = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        if taken is not None:
+            self._send(409, {"error": "Já existe uma conta com esse e-mail."})
             return
         now = int(time.time())
         salt, digest = hash_password(password)
         try:
             cur = conn.execute(
                 """
-                INSERT INTO users(username, name, role, salt, password_hash, active, created_at, trial_ends_at)
-                VALUES (?, ?, 'comum', ?, ?, 1, ?, ?)
+                INSERT INTO users(username, name, email, role, salt, password_hash, active, created_at, trial_ends_at)
+                VALUES (?, ?, ?, 'comum', ?, ?, 1, ?, ?)
                 """,
-                (username, name, salt, digest, now, now + TRIAL_DAYS * DAY),
+                (username, name, email, salt, digest, now, now + TRIAL_DAYS * DAY),
             )
         except sqlite3.IntegrityError:
             self._send(409, {"error": "Já existe um usuário com esse login."})
@@ -511,7 +527,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         conn.commit()
         row = conn.execute(
-            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (cur.lastrowid,),
         ).fetchone()
         self._send(200, {"token": token, "user": public_user(row)})
@@ -525,7 +541,7 @@ class Handler(BaseHTTPRequestHandler):
     def _list_users(self, conn, actor):
         if not self._require_admin(actor):
             return
-        rows = conn.execute("SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users ORDER BY name").fetchall()
+        rows = conn.execute("SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users ORDER BY name").fetchall()
         self._send(200, {"users": [public_user(row) for row in rows]})
 
     def _create_user(self, conn, actor, data):
@@ -561,7 +577,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(409, {"error": "Já existe um usuário com esse login."})
             return
         row = conn.execute(
-            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (cur.lastrowid,),
         ).fetchone()
         self._send(200, {"user": public_user(row)})
@@ -628,7 +644,11 @@ class Handler(BaseHTTPRequestHandler):
         )
         conn.commit()
         try:
-            preference = mp_json("POST", "/checkout/preferences", build_preference(actor["id"], plan, period))
+            preference = mp_json(
+                "POST",
+                "/checkout/preferences",
+                build_preference(actor["id"], plan, period, actor["email"] if "email" in actor.keys() else ""),
+            )
         except MercadoPagoError:
             self._send(502, {"error": "Não foi possível abrir o checkout do Mercado Pago."})
             return
@@ -724,7 +744,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         conn.commit()
         fresh = conn.execute(
-            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
         self._send(200, {"user": public_user(fresh)})
@@ -772,7 +792,7 @@ class Handler(BaseHTTPRequestHandler):
         conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, actor["id"]))
         conn.commit()
         row = conn.execute(
-            "SELECT id, username, name, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
+            "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
             (actor["id"],),
         ).fetchone()
         self._send(200, {"user": public_user(row)})

@@ -10,11 +10,15 @@ import 'package:juros/src/ui/signup_page.dart';
 
 void main() {
   testWidgets('formulário cria a conta e entra com o teste de 3 dias', (tester) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     SessionUser? created;
     final api = AuthApi(
       client: MockClient((request) async {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['username'], 'maria');
+        expect(body['email'], 'maria@example.com');
         expect(request.url.path, endsWith('/api/signup'));
         return http.Response(
           jsonEncode({
@@ -52,10 +56,14 @@ void main() {
       ),
     );
     await tester.enterText(find.widgetWithText(TextField, 'Seu nome'), 'Maria');
+    await tester.enterText(find.widgetWithText(TextField, 'E-mail'), 'maria@example.com');
     await tester.enterText(find.widgetWithText(TextField, 'Usuário para entrar'), 'maria');
     await tester.enterText(find.widgetWithText(TextField, 'Senha'), 'senha123');
     await tester.enterText(find.widgetWithText(TextField, 'Confirmar senha'), 'senha123');
-    await tester.tap(find.text('Criar conta grátis por 3 dias'));
+    final button = find.text('Criar conta grátis por 3 dias');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
     await tester.pump();
     expect(created?.access.trial, isTrue);
     expect(created?.access.daysLeft, 3);
@@ -77,6 +85,7 @@ void main() {
       ),
     );
     await tester.enterText(find.widgetWithText(TextField, 'Seu nome'), 'Maria');
+    await tester.enterText(find.widgetWithText(TextField, 'E-mail'), 'maria@example.com');
     await tester.enterText(find.widgetWithText(TextField, 'Usuário para entrar'), 'maria');
     await tester.enterText(find.widgetWithText(TextField, 'Senha'), 'senha123');
     await tester.enterText(find.widgetWithText(TextField, 'Confirmar senha'), 'outra');
