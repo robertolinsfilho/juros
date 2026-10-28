@@ -16,6 +16,13 @@ Future<void> open(WidgetTester tester, Size size, {VoidCallback? onCreate, VoidC
 }
 
 void main() {
+  test('o site usa Plus Jakarta Sans', () {
+    final theme = buildTheme();
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'Plus Jakarta Sans');
+    expect(theme.textTheme.headlineMedium?.fontFamily, 'Plus Jakarta Sans');
+    expect(theme.textTheme.bodyMedium?.fontFamilyFallback, contains('NotoEmoji'));
+  });
+
   for (final size in const [Size(1400, 900), Size(390, 800)]) {
     testWidgets('home renderiza sem estouro em ${size.width.toInt()}px', (tester) async {
       await open(tester, size);

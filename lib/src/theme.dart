@@ -44,6 +44,7 @@ ThemeData buildTheme() {
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    fontFamily: 'Plus Jakarta Sans',
     fontFamilyFallback: const ['NotoEmoji'],
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.bg,
