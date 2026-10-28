@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../auth/auth_api.dart';
@@ -30,7 +32,7 @@ const _plans = [
     title: 'Plano Mensal',
     subtitle: 'Acesso completo',
     price: 'R\$ 49,99/mês',
-    yearly: 'ou R\$ 480,00 por ano · o prazo você escolhe no checkout',
+    yearly: 'ou R\$ 480,00 por ano',
     features: [
       'Gestão ilimitada de clientes',
       'Controle completo de empréstimos',
@@ -45,26 +47,33 @@ const _plans = [
     title: 'Aplicativo + Relatório',
     subtitle: 'Tudo do plano, mais o resumo diário no WhatsApp',
     price: 'R\$ 69,90/mês',
-    yearly: 'ou R\$ 499,00 por ano · o prazo você escolhe no checkout',
+    yearly: 'ou R\$ 499,00 por ano',
     features: [],
     highlight: false,
   ),
 ];
 
-Future<void> showPlansDialog(BuildContext context, {required AuthApi auth, required String token, required int daysLeft}) {
+Future<void> showPlansDialog(
+  BuildContext context, {
+  required AuthApi auth,
+  required String token,
+  required int daysLeft,
+  void Function(SessionUser user)? onAccess,
+}) {
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (context) => _PlansDialog(auth: auth, token: token, daysLeft: daysLeft),
+    builder: (context) => _PlansDialog(auth: auth, token: token, daysLeft: daysLeft, onAccess: onAccess),
   );
 }
 
 class _PlansDialog extends StatefulWidget {
-  const _PlansDialog({required this.auth, required this.token, required this.daysLeft});
+  const _PlansDialog({required this.auth, required this.token, required this.daysLeft, this.onAccess});
 
   final AuthApi auth;
   final String token;
   final int daysLeft;
+  final void Function(SessionUser user)? onAccess;
 
   @override
   State<_PlansDialog> createState() => _PlansDialogState();
@@ -73,27 +82,57 @@ class _PlansDialog extends StatefulWidget {
 class _PlansDialogState extends State<_PlansDialog> {
   String? busyPlan;
   String? message;
-  String? checkoutUrl;
+  Timer? waiting;
 
-  Future<void> subscribe(_Plan plan) async {
-    setState(() {
-      busyPlan = plan.id;
-      message = null;
-    });
-    try {
-      final result = await widget.auth.subscribe(widget.token, plan.id);
-      if (!mounted) return;
-      if (result.checkoutUrl.isNotEmpty) {
-        await openExternal(Uri.parse(result.checkoutUrl));
-        if (mounted) setState(() => checkoutUrl = result.checkoutUrl);
-      } else {
-        setState(() => message = result.message.isEmpty ? 'Pedido registrado.' : result.message);
+  @override
+  void dispose() {
+    waiting?.cancel();
+    super.dispose();
+  }
+
+  void watchAccess() {
+    waiting?.cancel();
+    var tries = 0;
+    waiting = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      tries += 1;
+      if (tries > 24) {
+        timer.cancel();
+        return;
       }
-    } on AuthException catch (error) {
-      if (mounted) setState(() => message = error.message);
-    } finally {
-      if (mounted) setState(() => busyPlan = null);
-    }
+      try {
+        final me = await widget.auth.me(widget.token);
+        if (!mounted) return;
+        if (!me.access.subscriber) return;
+        timer.cancel();
+        widget.onAccess?.call(me);
+        Navigator.pop(context);
+      } catch (_) {}
+    });
+  }
+
+  void subscribe(_Plan plan, {String period = 'mes'}) {
+    openWhenReady(() async {
+      setState(() {
+        busyPlan = '${plan.id}:$period';
+        message = null;
+      });
+      try {
+        final result = await widget.auth.subscribe(widget.token, plan.id, period: period);
+        if (!mounted) return null;
+        if (result.checkoutUrl.isEmpty) {
+          setState(() => message = result.message.isEmpty ? 'Pedido registrado.' : result.message);
+          return null;
+        }
+        setState(() => message = 'Checkout do Mercado Pago aberto. Conclua o pagamento na outra aba.');
+        watchAccess();
+        return Uri.tryParse(result.checkoutUrl);
+      } on AuthException catch (error) {
+        if (mounted) setState(() => message = error.message);
+        return null;
+      } finally {
+        if (mounted) setState(() => busyPlan = null);
+      }
+    });
   }
 
   Widget banner() {
@@ -130,8 +169,8 @@ class _PlansDialogState extends State<_PlansDialog> {
   }
 
   Widget planCard(_Plan plan) {
-    final busy = busyPlan == plan.id;
-    final buttonText = Text(busy ? 'Abrindo...' : 'Assinar agora');
+    final busy = busyPlan != null && busyPlan!.startsWith('${plan.id}:');
+    final buttonText = Text(busy ? 'Abrindo checkout...' : 'Assinar agora');
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
@@ -195,11 +234,9 @@ class _PlansDialogState extends State<_PlansDialog> {
                   ),
                   child: buttonText,
                 ),
-          const SizedBox(height: 10),
-          Text(
-            plan.yearly,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+          TextButton(
+            onPressed: busy ? null : () => subscribe(plan, period: 'ano'),
+            child: Text(plan.yearly, textAlign: TextAlign.center),
           ),
         ],
       ),
@@ -275,7 +312,7 @@ class _PlansDialogState extends State<_PlansDialog> {
                 const SizedBox(height: 10),
               ],
               const Text(
-                'Cancele quando quiser',
+                'Pagamento pelo Mercado Pago · cancele quando quiser',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),

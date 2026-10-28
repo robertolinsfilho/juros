@@ -9,6 +9,9 @@ import re
 import secrets
 import sqlite3
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DB_PATH = os.environ.get("JUROS_AUTH_DB", "/var/lib/juros/auth.db")
@@ -20,15 +23,27 @@ SESSION_SECONDS = 14 * 24 * 60 * 60
 DAY = 24 * 60 * 60
 USERNAME = re.compile(r"^[a-z0-9._]{3,32}$")
 
-# Planos oferecidos. Preencha "link" com o endereço de pagamento para abrir direto;
-# vazio, o app registra o pedido e mostra como falar com o suporte.
+# Preços em centavos. "mes" cobra um mês de acesso; "ano" cobra o valor anual.
 PLANS = {
-    "mensal": {"label": "Plano Mensal", "price": "R$ 49,99/mês", "months": 1, "link": ""},
-    "app_relatorio": {"label": "Aplicativo + Relatório", "price": "R$ 69,90/mês", "months": 1, "link": ""},
+    "mensal": {
+        "label": "Plano Mensal",
+        "price": "R$ 49,99/mês",
+        "offers": {
+            "mes": {"title": "Acertaí Finanças — Plano Mensal", "cents": 4999, "days": 31},
+            "ano": {"title": "Acertaí Finanças — Plano Mensal anual", "cents": 48000, "days": 365},
+        },
+    },
+    "app_relatorio": {
+        "label": "Aplicativo + Relatório",
+        "price": "R$ 69,90/mês",
+        "offers": {
+            "mes": {"title": "Acertaí Finanças — Aplicativo + Relatório", "cents": 6990, "days": 31},
+            "ano": {"title": "Acertaí Finanças — Aplicativo + Relatório anual", "cents": 49900, "days": 365},
+        },
+    },
 }
-CHECKOUT_MESSAGE = (
-    "Pedido registrado. Fale com o suporte para concluir o pagamento e liberar o acesso."
-)
+PUBLIC_URL = os.environ.get("JUROS_PUBLIC_URL", "https://acertaifinancas.com.br").rstrip("/")
+MP_API = "https://api.mercadopago.com"
 TRIAL_DAYS = 3
 # Configurações de cada pessoa que acompanham o login em qualquer aparelho.
 SETTING_KEY = re.compile(
@@ -56,6 +71,126 @@ def hash_password(password, salt=None):
 def password_ok(password, salt, digest):
     check = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), ITERATIONS).hex()
     return hmac.compare_digest(check, digest)
+
+
+def mp_token():
+    return os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+
+
+def offer_of(plan, period):
+    item = PLANS.get(plan)
+    if item is None:
+        return None
+    return item["offers"].get(period)
+
+
+def build_preference(user_id, plan, period):
+    """Corpo do checkout (Checkout Pro) para um plano e um prazo."""
+    offer = offer_of(plan, period)
+    return {
+        "items": [
+            {
+                "id": f"{plan}-{period}",
+                "title": offer["title"],
+                "quantity": 1,
+                "currency_id": "BRL",
+                "unit_price": offer["cents"] / 100,
+            }
+        ],
+        "external_reference": f"{user_id}:{plan}:{period}",
+        "notification_url": f"{PUBLIC_URL}/api/mercadopago/webhook",
+        "back_urls": {
+            "success": f"{PUBLIC_URL}/?assinatura=ok",
+            "pending": f"{PUBLIC_URL}/?assinatura=pendente",
+            "failure": f"{PUBLIC_URL}/?assinatura=falha",
+        },
+        "auto_return": "approved",
+        "statement_descriptor": "ACERTAI",
+        "metadata": {"user_id": user_id, "plan": plan, "period": period},
+    }
+
+
+class MercadoPagoError(Exception):
+    pass
+
+
+def mp_json(method, path, payload=None):
+    """Chama a API do Mercado Pago. O token fica só na variável de ambiente."""
+    token = mp_token()
+    if not token:
+        raise MercadoPagoError("sem token")
+    body = None if payload is None else json.dumps(payload).encode()
+    request = urllib.request.Request(
+        MP_API + path,
+        data=body,
+        method=method,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", "replace")[:300]
+        print(f"mercadopago {error.code} {detail}", flush=True)
+        raise MercadoPagoError("falha") from error
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
+        print(f"mercadopago rede {error}", flush=True)
+        raise MercadoPagoError("rede") from error
+
+
+def checkout_url(preference):
+    token = mp_token()
+    if token.startswith("TEST-"):
+        return preference.get("sandbox_init_point") or ""
+    return preference.get("init_point") or ""
+
+
+def apply_approved_payment(conn, payment):
+    """Libera os dias do plano quando o Mercado Pago confirma o valor certo.
+
+    Pagamento repetido não soma os dias de novo.
+    """
+    if payment.get("status") != "approved":
+        return "ignored"
+    parts = str(payment.get("external_reference") or "").split(":")
+    if len(parts) != 3 or not parts[0].isdigit():
+        return "ignored"
+    user_id, plan, period = int(parts[0]), parts[1], parts[2]
+    offer = offer_of(plan, period)
+    if offer is None or payment.get("currency_id") != "BRL":
+        return "ignored"
+    paid = int(round(float(payment.get("transaction_amount") or 0) * 100))
+    if abs(paid - offer["cents"]) > 1:
+        return "ignored"
+    mp_id = str(payment.get("id") or "")
+    if not mp_id:
+        return "ignored"
+    user = conn.execute("SELECT id, paid_until FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user is None:
+        return "ignored"
+    now = int(time.time())
+    base = max(int(user["paid_until"] or 0), now)
+    try:
+        conn.execute(
+            """
+            INSERT INTO payments(mp_id, user_id, plan, days, amount_cents, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (mp_id, user_id, plan, offer["days"], paid, now),
+        )
+        conn.execute(
+            "UPDATE users SET paid_until = ?, plan = ? WHERE id = ?",
+            (base + offer["days"] * DAY, plan, user_id),
+        )
+        conn.execute(
+            "UPDATE subscription_requests SET status = 'concluido' WHERE user_id = ? AND status = 'pendente'",
+            (user_id,),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return "duplicate"
+    return "applied"
 
 
 def ensure_schema(conn):
@@ -91,6 +226,14 @@ def ensure_schema(conn):
           plan TEXT NOT NULL,
           created_at INTEGER NOT NULL,
           status TEXT NOT NULL DEFAULT 'pendente'
+        );
+        CREATE TABLE IF NOT EXISTS payments (
+          mp_id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          plan TEXT NOT NULL,
+          days INTEGER NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
         );
         """
     )
@@ -223,19 +366,28 @@ class Handler(BaseHTTPRequestHandler):
         return
 
     def _route(self, method):
-        path = self.path.split("?", 1)[0].rstrip("/") or "/"
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        query = urllib.parse.parse_qs(parsed.query)
         length = int(self.headers.get("Content-Length", "0") or "0")
         raw = self.rfile.read(length) if length else b""
-        try:
-            data = json.loads(raw.decode() or "{}") if raw else {}
-        except json.JSONDecodeError:
-            self._send(400, {"error": "Pedido inválido."})
-            return
-        if not isinstance(data, dict):
-            self._send(400, {"error": "Pedido inválido."})
-            return
+        data = {}
+        if raw:
+            try:
+                loaded = json.loads(raw.decode() or "{}")
+            except json.JSONDecodeError:
+                loaded = None
+            if not isinstance(loaded, dict):
+                if path != "/api/mercadopago/webhook":
+                    self._send(400, {"error": "Pedido inválido."})
+                    return
+                loaded = {}
+            data = loaded
         conn = connect()
         try:
+            if path == "/api/mercadopago/webhook" and method in ("GET", "POST"):
+                self._mercadopago_webhook(conn, data, query)
+                return
             if method == "GET" and path == "/api/health":
                 self._send(200, {"ok": True})
                 return
@@ -463,25 +615,55 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"settings": {row["key"]: row["value"] for row in rows}})
 
     def _subscribe(self, conn, actor, data):
-        """Registra o pedido de assinatura e devolve o link de pagamento, quando configurado."""
+        """Abre o checkout do Mercado Pago para o plano e o prazo escolhidos."""
         plan = str(data.get("plan", "")).strip()
-        if plan not in PLANS:
+        period = str(data.get("period", "mes")).strip()
+        if offer_of(plan, period) is None:
             self._send(400, {"error": "Plano inválido."})
+            return
+        if not mp_token():
+            self._send(503, {"error": "O checkout do Mercado Pago ainda não está configurado."})
             return
         conn.execute(
             "INSERT INTO subscription_requests(user_id, plan, created_at) VALUES (?, ?, ?)",
             (actor["id"], plan, int(time.time())),
         )
         conn.commit()
-        link = PLANS[plan]["link"]
-        self._send(
-            200,
-            {
-                "requested": True,
-                "checkout_url": link,
-                "message": CHECKOUT_MESSAGE if not link else "",
-            },
-        )
+        try:
+            preference = mp_json("POST", "/checkout/preferences", build_preference(actor["id"], plan, period))
+        except MercadoPagoError:
+            self._send(502, {"error": "Não foi possível abrir o checkout do Mercado Pago."})
+            return
+        link = checkout_url(preference)
+        if not link:
+            self._send(502, {"error": "O Mercado Pago não devolveu o checkout."})
+            return
+        self._send(200, {"requested": True, "checkout_url": link, "message": ""})
+
+    def _mercadopago_webhook(self, conn, data, query):
+        """Confirma o pagamento na API do Mercado Pago e libera o acesso."""
+        payment_id = ""
+        kind = str(data.get("type") or data.get("topic") or "")
+        if kind == "payment":
+            inner = data.get("data")
+            if isinstance(inner, dict) and inner.get("id") is not None:
+                payment_id = str(inner.get("id"))
+            elif data.get("id") is not None:
+                payment_id = str(data.get("id"))
+        if not payment_id:
+            topic = (query.get("type") or query.get("topic") or [""])[0]
+            if topic == "payment":
+                payment_id = (query.get("data.id") or query.get("id") or [""])[0]
+        if not payment_id or not mp_token():
+            self._send(200, {"ok": True})
+            return
+        try:
+            payment = mp_json("GET", f"/v1/payments/{urllib.parse.quote(payment_id)}")
+        except MercadoPagoError:
+            self._send(500, {"error": "Não foi possível confirmar o pagamento."})
+            return
+        apply_approved_payment(conn, payment)
+        self._send(200, {"ok": True})
 
     def _list_requests(self, conn, actor):
         if not self._require_admin(actor):

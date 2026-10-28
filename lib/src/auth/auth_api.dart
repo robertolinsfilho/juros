@@ -146,10 +146,13 @@ class AuthApi {
     await _send('POST', '/api/settings', token: token, body: {'settings': changes});
   }
 
-  /// Registra o pedido de assinatura. Devolve o link de pagamento quando configurado,
-  /// ou uma mensagem para falar com o suporte.
-  Future<({String checkoutUrl, String message})> subscribe(String token, String plan) async {
-    final json = await _send('POST', '/api/subscribe', token: token, body: {'plan': plan});
+  /// Abre o checkout do Mercado Pago. `period` é `mes` ou `ano`.
+  Future<({String checkoutUrl, String message})> subscribe(
+    String token,
+    String plan, {
+    String period = 'mes',
+  }) async {
+    final json = await _send('POST', '/api/subscribe', token: token, body: {'plan': plan, 'period': period});
     return (
       checkoutUrl: json['checkout_url'] as String? ?? '',
       message: json['message'] as String? ?? '',

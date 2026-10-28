@@ -19,3 +19,9 @@ Future<bool> openExternal(Uri uri) async {
   }
   return false;
 }
+
+Future<bool> openWhenReady(Future<Uri?> Function() load) async {
+  final uri = await load();
+  if (uri == null) return false;
+  return openExternal(uri);
+}

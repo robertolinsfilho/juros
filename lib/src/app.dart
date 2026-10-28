@@ -77,7 +77,15 @@ class _JurosAppState extends State<JurosApp> {
   Future<void> subscribe(SessionUser current) async {
     final navContext = navigatorKey.currentContext;
     if (navContext == null) return;
-    await showPlansDialog(navContext, auth: auth, token: token, daysLeft: current.access.daysLeft);
+    await showPlansDialog(
+      navContext,
+      auth: auth,
+      token: token,
+      daysLeft: current.access.daysLeft,
+      onAccess: (next) {
+        if (mounted) setState(() => user = next);
+      },
+    );
   }
 
   Future<void> enter(SessionUser next, String nextToken) async {    widget.repo.setSetting('session_token', nextToken);
