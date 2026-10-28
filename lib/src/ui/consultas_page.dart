@@ -866,11 +866,63 @@ const _unwrapKeys = {
   'response',
   'resultado',
   'retorno',
+  'results',
   'consultaCredito',
   'acertaEssencialPositivo',
   'acertaEssencial',
   'dossieCreditoPf',
   'dossieCreditoPj',
+};
+
+const _flatLabels = {
+  'cadastral': 'Identificação',
+  'dsgenero': 'Gênero',
+  'dsstatuscpf': 'Situação do CPF',
+  'dtnascimento': 'Nascimento',
+  'idade': 'Idade',
+  'nmcompleto': 'Nome',
+  'nmmae': 'Nome da mãe',
+  'nmpai': 'Nome do pai',
+  'nrcpf': 'CPF',
+  'nrcnpj': 'CNPJ',
+  'sggenero': 'Gênero',
+  'sgstatuscpf': 'Situação do CPF',
+  'dtultimavisualizacao': 'Última atualização',
+  'nrtelefone': 'Telefone',
+  'nrddd': 'DDD',
+  'nrcep': 'CEP',
+  'dslogradouro': 'Logradouro',
+  'dscomplemento': 'Complemento',
+  'nmbairro': 'Bairro',
+  'nmcidade': 'Cidade',
+  'sguf': 'UF',
+  'dsemail': 'E-mail',
+};
+
+const _dropFields = {
+  'cdordem',
+  'nmprimeiro',
+  'nmmeio',
+  'nmultimo',
+};
+
+const _wordLabels = {
+  'genero': 'Gênero',
+  'mae': 'mãe',
+  'numero': 'Número',
+  'endereco': 'Endereço',
+  'situacao': 'Situação',
+  'descricao': 'Descrição',
+  'codigo': 'Código',
+  'atualizacao': 'Atualização',
+  'visualizacao': 'Visualização',
+  'nascimento': 'Nascimento',
+  'cpf': 'CPF',
+  'cnpj': 'CNPJ',
+  'cep': 'CEP',
+  'uf': 'UF',
+  'ddd': 'DDD',
+  'rg': 'RG',
 };
 
 const _scoreKeys = {'score', 'scorepositivo', 'pontuacao', 'scoring'};
@@ -902,11 +954,62 @@ bool _blank(Object? value) {
   return false;
 }
 
+String _flat(String key) => key.toLowerCase().replaceAll('_', '');
+
+bool _skipField(Map map, String key) {
+  if (_hidden.contains(key)) return true;
+  final flat = _flat(key);
+  if (_dropFields.contains(flat)) return true;
+  if (flat.startsWith('sg')) {
+    final stem = flat.substring(2);
+    if (map.keys.any((other) => _flat(other.toString()) == 'ds$stem')) return true;
+  }
+  if (flat == 'nome' && map.keys.any((other) => _flat(other.toString()) == 'nmcompleto')) return true;
+  return false;
+}
+
 List<MapEntry> _entries(Map map) {
   return [
     for (final entry in map.entries)
-      if (!_hidden.contains(entry.key.toString()) && !_blank(entry.value)) entry,
+      if (!_skipField(map, entry.key.toString()) && !_blank(entry.value)) entry,
   ];
+}
+
+List<MapEntry> _ordered(Map map) {
+  const preferred = [
+    'nmcompleto',
+    'nomecompleto',
+    'nrcpf',
+    'cpf',
+    'dtnascimento',
+    'datanascimento',
+    'idade',
+    'dsgenero',
+    'sexo',
+    'dsstatuscpf',
+    'situacaocpf',
+    'nmmae',
+    'nomemae',
+    'nmpai',
+  ];
+  final entries = _entries(map);
+  final indexed = [for (var i = 0; i < entries.length; i++) MapEntry(i, entries[i])];
+  indexed.sort((a, b) {
+    final rankA = preferred.indexOf(_flat(a.value.key.toString()));
+    final rankB = preferred.indexOf(_flat(b.value.key.toString()));
+    final byRank = (rankA < 0 ? 100 : rankA).compareTo(rankB < 0 ? 100 : rankB);
+    if (byRank != 0) return byRank;
+    return a.key.compareTo(b.key);
+  });
+  return [for (final item in indexed) item.value];
+}
+
+String _scalarTitle(Map map) {
+  final flats = map.keys.map((key) => _flat(key.toString())).toSet();
+  if (flats.contains('nmcompleto') || flats.contains('nrcpf') || flats.contains('dtnascimento')) {
+    return 'Identificação';
+  }
+  return 'Dados';
 }
 
 Object? _prepare(Object? value) {
@@ -992,7 +1095,7 @@ List<Widget> _cards(Object? value) {
   if (current is Map) {
     final scalars = <Widget>[];
     final blocks = <Widget>[];
-    for (final entry in _entries(current)) {
+    for (final entry in _ordered(current)) {
       final key = entry.key.toString();
       final inner = _decode(entry.value);
       if (_isPdf(key, inner)) {
@@ -1008,7 +1111,7 @@ List<Widget> _cards(Object? value) {
       }
     }
     return [
-      if (scalars.isNotEmpty) _ResultCard(title: 'Dados', children: scalars),
+      if (scalars.isNotEmpty) _ResultCard(title: _scalarTitle(current), children: scalars),
       ...blocks,
     ];
   }
@@ -1052,7 +1155,7 @@ List<Widget> _nodes(Object? value) {
 
 List<Widget> _mapFields(Map map, {String? skipTitle}) {
   final widgets = <Widget>[];
-  for (final entry in _entries(map)) {
+  for (final entry in _ordered(map)) {
     final key = entry.key.toString();
     final inner = _decode(entry.value);
     if (skipTitle != null && inner is String && inner.trim() == skipTitle) continue;
@@ -1078,7 +1181,12 @@ List<Widget> _mapFields(Map map, {String? skipTitle}) {
 }
 
 String _recordTitle(Map map, int index) {
-  for (final key in ['nome', 'nomeCompleto', 'razaoSocial', 'nomeFantasia', 'cartorio', 'empresa', 'credor', 'descricao']) {
+  for (final entry in map.entries) {
+    final flat = _flat(entry.key.toString());
+    if (flat != 'nmcompleto' && flat != 'nomecompleto' && flat != 'razaosocial' && flat != 'cartorio') continue;
+    if (entry.value is String && (entry.value as String).trim().isNotEmpty) return (entry.value as String).trim();
+  }
+  for (final key in ['nome', 'nomeFantasia', 'empresa', 'credor', 'descricao']) {
     final value = map[key];
     if (value is String && value.trim().isNotEmpty) return value.trim();
   }
@@ -1102,35 +1210,70 @@ Widget _pdfButton(String url) {
 }
 
 String _label(String key) {
-  final known = _labels[key];
+  final known = _flatLabels[_flat(key)] ?? _labels[key];
   if (known != null) return known;
-  final spaced = key
+  final rest = _stripPrefix(key);
+  final words = rest
       .replaceAllMapped(RegExp(r'([a-zá-ú])([A-Z])'), (match) => '${match[1]} ${match[2]}')
       .replaceAll('_', ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  if (spaced.isEmpty) return key;
-  return spaced[0].toUpperCase() + spaced.substring(1);
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .map(_word)
+      .toList();
+  if (words.isEmpty) return key;
+  return words.join(' ');
+}
+
+String _stripPrefix(String key) {
+  final snake = RegExp(r'^(ds|dt|nm|nr|sg|cd|vl|qt|st|tp)_(.+)$', caseSensitive: false).firstMatch(key);
+  if (snake != null) return snake.group(2)!;
+  final camel = RegExp(r'^(ds|dt|nm|nr|sg|cd|vl|qt|st|tp)([A-Z].+)$').firstMatch(key);
+  if (camel != null) return camel.group(2)!;
+  return key;
+}
+
+String _word(String word) {
+  final known = _wordLabels[word.toLowerCase()];
+  if (known != null) {
+    if (known == known.toUpperCase() || known.startsWith(known[0].toUpperCase())) return known;
+    return known[0].toUpperCase() + known.substring(1);
+  }
+  final lower = word.toLowerCase();
+  return lower[0].toUpperCase() + lower.substring(1);
 }
 
 String _show(String key, Object value) {
   if (value is bool) return value ? 'Sim' : 'Não';
+  final flat = _flat(key);
   if (value is num && _isMoney(key)) return fmtMoney((value * 100).round());
-  if (value is num) return _plainNumber(value);
+  if (value is num) {
+    final digits = _plainNumber(value);
+    return _document(flat, digits) ?? digits;
+  }
   final text = value.toString().trim();
   if (_isMoney(key)) {
     final cents = _moneyCents(text);
     if (cents != null) return fmtMoney(cents);
   }
   final digits = text.replaceAll(RegExp(r'\D'), '');
-  final norm = key.toLowerCase();
-  if (norm.contains('cpf') && digits.length == 11) return _maskDocument(digits);
-  if (norm.contains('cnpj') && digits.length == 14) return _maskDocument(digits);
-  if (norm.contains('cep') && digits.length == 8) return '${digits.substring(0, 5)}-${digits.substring(5)}';
-  if (_isPhone(norm) && (digits.length == 10 || digits.length == 11)) return _phone(digits);
-  final date = _date(norm, text);
+  final document = _document(flat, digits);
+  if (document != null) return document;
+  if (flat.contains('cep') && digits.length == 8) return '${digits.substring(0, 5)}-${digits.substring(5)}';
+  if (_isPhone(flat) && (digits.length == 10 || digits.length == 11)) return _phone(digits);
+  if (flat.contains('genero') && text.length == 1) {
+    final code = text.toUpperCase();
+    if (code == 'M') return 'Masculino';
+    if (code == 'F') return 'Feminino';
+  }
+  final date = _date(flat, text);
   if (date != null) return date;
   return text;
+}
+
+String? _document(String flat, String digits) {
+  if (flat.contains('cpf') && digits.length == 11) return _maskDocument(digits);
+  if (flat.contains('cnpj') && digits.length == 14) return _maskDocument(digits);
+  return null;
 }
 
 bool _isMoney(String key) {
@@ -1150,7 +1293,7 @@ int? _moneyCents(String text) {
 }
 
 String? _date(String key, String text) {
-  if (!key.contains('data') && !key.contains('nascimento') && !key.contains('date')) return null;
+  if (!key.startsWith('dt') && !key.contains('nascimento') && !key.contains('data') && !key.contains('date')) return null;
   final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(text);
   if (iso != null) return '${iso[3]}/${iso[2]}/${iso[1]}';
   final compact = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(text);

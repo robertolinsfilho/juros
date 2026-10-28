@@ -124,4 +124,67 @@ void main() {
     expect(find.text('acertaEssencialPositivo'), findsNothing);
     expect(find.textContaining('{'), findsNothing);
   });
+
+  testWidgets('o cadastro traduz os códigos do fornecedor', (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: ResultView(
+              value: {
+                'results': {
+                  'cadastral': {
+                    'ds_genero': 'Masculino',
+                    'ds_status_cpf': 'Regular',
+                    'dt_nascimento': '1990-01-02',
+                    'idade': 28,
+                    'nm_completo': 'MARIA SILVA',
+                    'nm_mae': 'ANA SILVA',
+                    'nome': [
+                      {
+                        'cd_ordem': 1,
+                        'nm_primeiro': 'MARIA',
+                        'nm_meio': 'SILVA',
+                        'nm_ultimo': 'SILVA',
+                      },
+                    ],
+                    'nr_cpf': '11144477735',
+                    'sg_genero': 'M',
+                    'sg_status_cpf': 'R',
+                  },
+                },
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Identificação'), findsOneWidget);
+    expect(find.text('Nome'), findsOneWidget);
+    expect(find.text('MARIA SILVA'), findsOneWidget);
+    expect(find.text('CPF'), findsOneWidget);
+    expect(find.text('111.444.777-35'), findsOneWidget);
+    expect(find.text('Nascimento'), findsOneWidget);
+    expect(find.text('02/01/1990'), findsOneWidget);
+    expect(find.text('Idade'), findsOneWidget);
+    expect(find.text('Gênero'), findsOneWidget);
+    expect(find.text('Masculino'), findsOneWidget);
+    expect(find.text('Situação do CPF'), findsOneWidget);
+    expect(find.text('Regular'), findsOneWidget);
+    expect(find.text('Nome da mãe'), findsOneWidget);
+    expect(find.text('ANA SILVA'), findsOneWidget);
+    expect(find.text('Ds genero'), findsNothing);
+    expect(find.text('Nr cpf'), findsNothing);
+    expect(find.text('Sg genero'), findsNothing);
+    expect(find.text('Cd ordem'), findsNothing);
+    expect(find.text('Nm primeiro'), findsNothing);
+    expect(find.text('Results'), findsNothing);
+  });
 }
