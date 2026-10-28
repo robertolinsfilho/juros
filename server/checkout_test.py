@@ -136,6 +136,39 @@ def main():
     assert conn.execute("SELECT paid_until FROM users WHERE id = 7").fetchone()["paid_until"] == paid_before
     assert auth.apply_consulta_payment(conn, payment(id=2002, transaction_amount=9.9, external_reference="consulta:9")) == "duplicate"
 
+    for item in auth.CONSULTAS.values():
+        cents = item["cents"]
+        assert round((cents / 100) * 100) == cents
+    assert auth.consulta_payload({"data": {"score": 1}})["score"] == 1
+    assert auth.consulta_payload({"response": {"data": {"score": 2}}})["score"] == 2
+    assert auth.consulta_payload({"error": False}) is None
+
+    conn.execute(
+        """
+        INSERT INTO consultations(id, user_id, type_slug, search_type, document, amount_cents, created_at)
+        VALUES (11, 7, 'essencial', 'cpf', '11144477735', 1090, ?)
+        """,
+        (int(time.time()),),
+    )
+    waiting = conn.execute("SELECT * FROM consultations WHERE id = 11").fetchone()
+    missed = auth.sync_consulta_payment(
+        conn,
+        waiting,
+        lookup=lambda consult_id: payment(id=3003, transaction_amount=1, external_reference=f"consulta:{consult_id}"),
+    )
+    assert missed["status"] == "aguardando" and not missed["mp_id"]
+    synced = auth.sync_consulta_payment(
+        conn,
+        missed,
+        lookup=lambda consult_id: payment(id=3003, transaction_amount=10.9, external_reference=f"consulta:{consult_id}"),
+    )
+    assert synced["mp_id"] == "3003"
+    assert synced["status"] in ("paga", "falha", "consultando")
+    again = auth.sync_consulta_payment(conn, synced, lookup=lambda _consult_id: (_ for _ in ()).throw(AssertionError("repetiu")))
+    assert again["mp_id"] == "3003"
+    kept = auth.resume_consulta(conn, synced)
+    assert kept["error"] == synced["error"]
+
     now = int(time.time())
     people = sqlite3.connect(":memory:")
     people.row_factory = sqlite3.Row
@@ -171,6 +204,57 @@ def main():
     assert auth.access_of(fresh)["status"] == "vencido"
     again, message = auth.cancel_subscription(people, 2)
     assert again is None and "ativa" in message
+
+    codes = sqlite3.connect(":memory:")
+    codes.row_factory = sqlite3.Row
+    codes.execute(
+        """
+        CREATE TABLE password_codes (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          code_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        )
+        """
+    )
+    salt, digest = auth.hash_password("senha123")
+    owner = {"id": 4, "email": "maria@example.com", "salt": salt, "password_hash": digest}
+    sent = []
+
+    def send(email, code):
+        sent.append((email, code))
+
+    moment = 1_700_000_000
+    masked, message, status = auth.start_password_change(codes, owner, "errada", "nova1234", send, now=moment)
+    assert masked is None and status == 400 and sent == []
+    masked, message, status = auth.start_password_change(codes, owner, "senha123", "nova1234", send, now=moment)
+    assert status == 200 and masked == "m***@example.com" and message == ""
+    code = sent[0][1]
+    assert code not in message and len(code) == 6
+    ok, message = auth.take_password_code(codes, 4, "000000", "nova1234", now=moment)
+    assert not ok and "incorreto" in message
+    ok, message = auth.take_password_code(codes, 4, code, "outra123", now=moment)
+    assert not ok and "mudou" in message
+    ok, message = auth.take_password_code(codes, 4, code, "nova1234", now=moment)
+    assert ok and message == ""
+    ok, message = auth.take_password_code(codes, 4, code, "nova1234", now=moment + auth.PASSWORD_CODE_TTL + 5)
+    assert not ok and "expirou" in message
+
+    def boom(email, code):
+        raise auth.MailError("envio")
+
+    masked, message, status = auth.start_password_change(codes, owner, "senha123", "nova1234", boom, now=moment + 10)
+    assert status == 502 and "e-mail" in message
+    assert codes.execute("SELECT COUNT(*) AS n FROM password_codes WHERE expires_at > ?", (moment + 10,)).fetchone()["n"] == 0
+    empty = dict(owner)
+    empty["email"] = ""
+    masked, message, status = auth.start_password_change(codes, empty, "senha123", "nova1234", send, now=moment + 20)
+    assert status == 400 and "e-mail" in message
     print("ok")
 
 

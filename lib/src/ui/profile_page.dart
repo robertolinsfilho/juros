@@ -29,6 +29,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final currentPassword = TextEditingController();
   final nextPassword = TextEditingController();
   final confirmPassword = TextEditingController();
+  final emailCode = TextEditingController();
   bool savingName = false;
   bool savingPassword = false;
   bool cancelling = false;
@@ -37,6 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? passwordError;
   String? passwordOk;
   String? cancelError;
+  String? codeSentTo;
 
   @override
   void didUpdateWidget(covariant ProfilePage oldWidget) {
@@ -52,6 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
     currentPassword.dispose();
     nextPassword.dispose();
     confirmPassword.dispose();
+    emailCode.dispose();
     super.dispose();
   }
 
@@ -108,16 +111,61 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  bool get confirmsByEmail => widget.user.email.trim().isNotEmpty;
+
+  String? validatePassword() {
+    if (nextPassword.text != confirmPassword.text) return 'A confirmação não é igual à nova senha.';
+    if (nextPassword.text.length < 6) return 'A senha precisa ter pelo menos 6 caracteres.';
+    if (currentPassword.text.isEmpty) return 'Informe a senha atual.';
+    return null;
+  }
+
+  Future<void> sendCode() async {
+    setState(() {
+      savingPassword = true;
+      passwordError = null;
+      passwordOk = null;
+    });
+    final problem = validatePassword();
+    if (problem != null) {
+      setState(() {
+        savingPassword = false;
+        passwordError = problem;
+      });
+      return;
+    }
+    try {
+      final masked = await widget.auth.requestPasswordCode(
+        widget.token,
+        current: currentPassword.text,
+        password: nextPassword.text,
+      );
+      if (mounted) setState(() => codeSentTo = masked.isEmpty ? widget.user.email : masked);
+    } on AuthException catch (error) {
+      if (mounted) setState(() => passwordError = error.message);
+    } finally {
+      if (mounted) setState(() => savingPassword = false);
+    }
+  }
+
   Future<void> savePassword() async {
     setState(() {
       savingPassword = true;
       passwordError = null;
       passwordOk = null;
     });
-    if (nextPassword.text != confirmPassword.text) {
+    final problem = validatePassword();
+    if (problem != null) {
       setState(() {
         savingPassword = false;
-        passwordError = 'A confirmação não é igual à nova senha.';
+        passwordError = problem;
+      });
+      return;
+    }
+    if (confirmsByEmail && emailCode.text.trim().isEmpty) {
+      setState(() {
+        savingPassword = false;
+        passwordError = 'Informe o código enviado para o e-mail.';
       });
       return;
     }
@@ -127,11 +175,18 @@ class _ProfilePageState extends State<ProfilePage> {
         widget.user.id,
         nextPassword.text,
         current: currentPassword.text,
+        code: confirmsByEmail ? emailCode.text.trim() : null,
       );
       currentPassword.clear();
       nextPassword.clear();
       confirmPassword.clear();
-      if (mounted) setState(() => passwordOk = 'Senha atualizada.');
+      emailCode.clear();
+      if (mounted) {
+        setState(() {
+          codeSentTo = null;
+          passwordOk = 'Senha atualizada.';
+        });
+      }
     } on AuthException catch (error) {
       if (mounted) setState(() => passwordError = error.message);
     } finally {
@@ -229,6 +284,13 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Trocar senha', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(
+                confirmsByEmail
+                    ? 'A troca pede um código enviado para o e-mail cadastrado.'
+                    : 'Esta conta não tem e-mail. A senha muda com a senha atual.',
+                style: const TextStyle(color: AppColors.muted),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: currentPassword,
@@ -246,8 +308,19 @@ class _ProfilePageState extends State<ProfilePage> {
                 controller: confirmPassword,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Confirmar nova senha'),
-                onSubmitted: (_) => savePassword(),
+                onSubmitted: (_) => confirmsByEmail ? sendCode() : savePassword(),
               ),
+              if (confirmsByEmail && codeSentTo != null) ...[
+                const SizedBox(height: 12),
+                Text('Código enviado para $codeSentTo.', style: const TextStyle(color: AppColors.green)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCode,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Código do e-mail'),
+                  onSubmitted: (_) => savePassword(),
+                ),
+              ],
               if (passwordError != null) ...[
                 const SizedBox(height: 12),
                 Text(passwordError!, style: const TextStyle(color: AppColors.red)),
@@ -259,9 +332,22 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 16),
               Align(
                 alignment: Alignment.centerLeft,
-                child: FilledButton(
-                  onPressed: savingPassword ? null : savePassword,
-                  child: Text(savingPassword ? 'Salvando...' : 'Trocar senha'),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (confirmsByEmail)
+                      OutlinedButton(
+                        onPressed: savingPassword ? null : sendCode,
+                        child: Text(savingPassword && codeSentTo == null ? 'Enviando...' : 'Enviar código'),
+                      ),
+                    FilledButton(
+                      onPressed: !confirmsByEmail || codeSentTo != null
+                          ? (savingPassword ? null : savePassword)
+                          : null,
+                      child: Text(savingPassword && codeSentTo != null ? 'Salvando...' : 'Trocar senha'),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -7,11 +7,13 @@ import json
 import os
 import re
 import secrets
+import smtplib
 import sqlite3
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DB_PATH = os.environ.get("JUROS_AUTH_DB", "/var/lib/juros/auth.db")
@@ -44,6 +46,8 @@ PLANS = {
     },
 }
 PUBLIC_URL = os.environ.get("JUROS_PUBLIC_URL", "https://acertaifinancas.com.br").rstrip("/")
+MAIL_FROM = os.environ.get("MAIL_FROM", "Acertaí Finanças <noreply@acertaifinancas.com.br>")
+PASSWORD_CODE_TTL = 10 * 60
 MP_API = "https://api.mercadopago.com"
 TRIAL_DAYS = 3
 # Configurações de cada pessoa que acompanham o login em qualquer aparelho.
@@ -72,6 +76,121 @@ def hash_password(password, salt=None):
 def password_ok(password, salt, digest):
     check = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), ITERATIONS).hex()
     return hmac.compare_digest(check, digest)
+
+
+class MailError(Exception):
+    pass
+
+
+def mask_email(email):
+    local, _, domain = str(email or "").partition("@")
+    if not local or not domain:
+        return ""
+    return f"{local[0]}***@{domain}"
+
+
+def send_mail(recipient, subject, body):
+    """Envia pelo Postfix local. O código não entra no log."""
+    message = EmailMessage()
+    message["From"] = MAIL_FROM
+    message["To"] = recipient
+    message["Subject"] = subject
+    message.set_content(body)
+    try:
+        with smtplib.SMTP("127.0.0.1", 25, timeout=15) as smtp:
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as error:
+        print(f"email falhou {type(error).__name__}", flush=True)
+        raise MailError("envio") from error
+
+
+def send_password_code(recipient, code):
+    send_mail(
+        recipient,
+        "Código para trocar a senha",
+        "Use este código para confirmar a troca de senha na Acertaí Finanças:\n\n"
+        f"{code}\n\n"
+        "Ele vale por 10 minutos. Se você não pediu a troca, ignore este e-mail.\n",
+    )
+
+
+def issue_password_code(conn, user_id, password, now=None):
+    """Guarda o código e a senha nova. Um pedido novo invalida o anterior."""
+    now = int(time.time() if now is None else now)
+    hour = conn.execute(
+        "SELECT COUNT(*) AS n FROM password_codes WHERE user_id = ? AND created_at > ?",
+        (user_id, now - 3600),
+    ).fetchone()["n"]
+    if hour >= 5:
+        return None, "Muitos códigos pedidos. Espere um pouco e tente de novo."
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    salt, digest = hash_password(code)
+    pw_salt, pw_digest = hash_password(password)
+    conn.execute(
+        "UPDATE password_codes SET expires_at = ? WHERE user_id = ? AND expires_at > ?",
+        (now, user_id, now),
+    )
+    conn.execute(
+        """
+        INSERT INTO password_codes(
+          user_id, code_hash, salt, password_hash, password_salt, expires_at, attempts, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        """,
+        (user_id, digest, salt, pw_digest, pw_salt, now + PASSWORD_CODE_TTL, now),
+    )
+    conn.commit()
+    return code, ""
+
+
+def take_password_code(conn, user_id, code, password, now=None):
+    now = int(time.time() if now is None else now)
+    row = conn.execute(
+        """
+        SELECT * FROM password_codes
+        WHERE user_id = ? AND expires_at >= ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id, now),
+    ).fetchone()
+    if row is None:
+        return False, "O código expirou. Peça outro."
+    if row["attempts"] >= 5:
+        return False, "Muitas tentativas. Peça outro código."
+    if not password_ok(str(password), row["password_salt"], row["password_hash"]):
+        return False, "A senha mudou depois do código. Peça outro."
+    if not password_ok(str(code or "").strip(), row["salt"], row["code_hash"]):
+        conn.execute("UPDATE password_codes SET attempts = attempts + 1 WHERE id = ?", (row["id"],))
+        conn.commit()
+        return False, "Código incorreto."
+    conn.execute("DELETE FROM password_codes WHERE user_id = ?", (user_id,))
+    conn.commit()
+    return True, ""
+
+
+def start_password_change(conn, row, current, password, send, now=None):
+    """Confere a senha atual e manda o código. Não devolve o código."""
+    email = str(row["email"] or "").strip().lower()
+    if not EMAIL.fullmatch(email):
+        return None, "Sua conta não tem um e-mail cadastrado para receber o código.", 400
+    if not password_ok(str(current), row["salt"], row["password_hash"]):
+        return None, "Senha atual incorreta.", 400
+    if len(str(password)) < 6:
+        return None, "A senha precisa ter pelo menos 6 caracteres.", 400
+    code, message = issue_password_code(conn, row["id"], password, now=now)
+    if code is None:
+        return None, message, 429
+    try:
+        send(email, code)
+    except MailError:
+        moment = int(time.time() if now is None else now)
+        conn.execute(
+            "DELETE FROM password_codes WHERE user_id = ? AND expires_at > ?",
+            (row["id"], moment),
+        )
+        conn.commit()
+        return None, "Não foi possível enviar o e-mail. Tente de novo.", 502
+    return mask_email(email), "", 200
 
 
 def mp_token():
@@ -352,6 +471,21 @@ def provider_message(text):
     return clean
 
 
+def consulta_payload(loaded):
+    """O dossiê vem em data. Alguns retornos embrulham isso em response."""
+    if not isinstance(loaded, dict):
+        return None
+    data = loaded.get("data")
+    if isinstance(data, (dict, list)):
+        return data
+    inner = loaded.get("response")
+    if isinstance(inner, dict):
+        nested = inner.get("data")
+        if isinstance(nested, (dict, list)):
+            return nested
+    return None
+
+
 def run_consulta(slug, search_type, document):
     """Busca o dossiê na APIBrasil. O token fica só na variável de ambiente."""
     call = CONSULTAS[slug]["calls"][search_type]
@@ -381,10 +515,12 @@ def run_consulta(slug, search_type, document):
         print(f"consulta rede {error}", flush=True)
         raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
     if not isinstance(loaded, dict) or loaded.get("error") is True:
-        message = provider_message(loaded.get("message") if isinstance(loaded, dict) else "")
-        raise ConsultaError(message)
-    data = loaded.get("data")
-    if not isinstance(data, (dict, list)):
+        raw = " ".join(str(loaded.get("message") or "").split()) if isinstance(loaded, dict) else ""
+        if "saldo" in raw.lower() or "insuficiente" in raw.lower():
+            raise ConsultaError("O saldo do fornecedor acabou. Tente de novo sem pagar outra vez.", retry=True)
+        raise ConsultaError(provider_message(raw))
+    data = consulta_payload(loaded)
+    if data is None:
         raise ConsultaError("A consulta voltou sem dados.", retry=True)
     return data
 
@@ -482,6 +618,60 @@ def apply_consulta_payment(conn, payment):
     fresh = conn.execute("SELECT * FROM consultations WHERE id = ?", (row["id"],)).fetchone()
     finish_consulta(conn, fresh)
     return "applied"
+
+
+def find_consulta_payment(consult_id):
+    """Pagamento aprovado desta consulta, quando o aviso do Mercado Pago ainda não chegou."""
+    query = urllib.parse.urlencode(
+        {
+            "external_reference": f"consulta:{consult_id}",
+            "sort": "date_created",
+            "criteria": "desc",
+            "limit": "5",
+        }
+    )
+    found = mp_json("GET", f"/v1/payments/search?{query}")
+    results = found.get("results") if isinstance(found, dict) else None
+    if not isinstance(results, list):
+        return None
+    wanted = f"consulta:{consult_id}"
+    for payment in results:
+        if not isinstance(payment, dict):
+            continue
+        if str(payment.get("external_reference") or "") != wanted:
+            continue
+        if payment.get("status") == "approved":
+            return payment
+    return None
+
+
+def sync_consulta_payment(conn, row, lookup=None):
+    """Marca a consulta como paga assim que o Mercado Pago confirma, sem depender só do aviso."""
+    if row["mp_id"] or row["status"] != "aguardando":
+        return row
+    if lookup is None:
+        if not mp_token():
+            return row
+        try:
+            payment = find_consulta_payment(row["id"])
+        except MercadoPagoError:
+            return row
+    else:
+        payment = lookup(row["id"])
+    if not isinstance(payment, dict):
+        return row
+    apply_consulta_payment(conn, payment)
+    fresh = conn.execute("SELECT * FROM consultations WHERE id = ?", (row["id"],)).fetchone()
+    return fresh or row
+
+
+def resume_consulta(conn, row):
+    """Chama o fornecedor se o pagamento entrou e a busca ainda não saiu."""
+    if row["status"] != "paga" or row["result_json"] or row["error"]:
+        return row
+    finish_consulta(conn, row)
+    fresh = conn.execute("SELECT * FROM consultations WHERE id = ?", (row["id"],)).fetchone()
+    return fresh or row
 
 
 def apply_approved_payment(conn, payment):
@@ -587,6 +777,17 @@ def ensure_schema(conn):
           error TEXT NOT NULL DEFAULT '',
           created_at INTEGER NOT NULL,
           paid_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS password_codes (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          code_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
         );
         """
     )
@@ -794,6 +995,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/me/cancel" and method == "POST":
                 self._cancel_subscription(conn, actor)
+                return
+            if path == "/api/me/password-code" and method == "POST":
+                self._password_code(conn, actor, data)
                 return
             if path == "/api/subscribe" and method == "POST":
                 self._subscribe(conn, actor, data)
@@ -1205,6 +1409,23 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, {"user": public_user(fresh)})
 
+    def _password_code(self, conn, actor, data):
+        row = conn.execute("SELECT id, email, salt, password_hash FROM users WHERE id = ?", (actor["id"],)).fetchone()
+        if row is None:
+            self._send(404, {"error": "Usuário não encontrado."})
+            return
+        masked, message, status = start_password_change(
+            conn,
+            row,
+            data.get("current", ""),
+            data.get("password", ""),
+            send_password_code,
+        )
+        if masked is None:
+            self._send(status, {"error": message})
+            return
+        self._send(200, {"sent": True, "email": masked})
+
     def _set_password(self, conn, actor, user_id, data):
         if actor["id"] != user_id and actor["role"] != "admin":
             self._send(403, {"error": "Só um administrador pode alterar a senha de outra pessoa."})
@@ -1213,13 +1434,23 @@ class Handler(BaseHTTPRequestHandler):
         if len(password) < 6:
             self._send(400, {"error": "A senha precisa ter pelo menos 6 caracteres."})
             return
-        row = conn.execute("SELECT id, salt, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id, email, salt, password_hash FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
         if row is None:
             self._send(404, {"error": "Usuário não encontrado."})
             return
-        if actor["id"] == user_id and not password_ok(str(data.get("current", "")), row["salt"], row["password_hash"]):
-            self._send(400, {"error": "Senha atual incorreta."})
-            return
+        if actor["id"] == user_id:
+            email = str(row["email"] or "").strip().lower()
+            if EMAIL.fullmatch(email):
+                ok, message = take_password_code(conn, user_id, data.get("code"), password)
+                if not ok:
+                    self._send(400, {"error": message})
+                    return
+            elif not password_ok(str(data.get("current", "")), row["salt"], row["password_hash"]):
+                self._send(400, {"error": "Senha atual incorreta."})
+                return
         salt, digest = hash_password(password)
         conn.execute("UPDATE users SET salt = ?, password_hash = ? WHERE id = ?", (salt, digest, user_id))
         if actor["id"] != user_id:
@@ -1240,6 +1471,8 @@ class Handler(BaseHTTPRequestHandler):
             if row is None:
                 self._send(404, {"error": "Consulta não encontrada."})
                 return
+            row = sync_consulta_payment(conn, row)
+            row = resume_consulta(conn, row)
             self._send(200, {"consulta": consulta_row(row, with_result=True)})
             return
         rows = conn.execute(

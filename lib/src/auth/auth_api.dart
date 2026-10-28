@@ -234,10 +234,24 @@ class AuthApi {
     return SessionUser.fromJson(json['user'] as Map<String, dynamic>);
   }
 
-  Future<void> setPassword(String token, int id, String password, {String? current}) async {
+  /// Manda um código para o e-mail cadastrado. A senha só muda depois da confirmação.
+  Future<String> requestPasswordCode(
+    String token, {
+    required String current,
+    required String password,
+  }) async {
+    final json = await _send('POST', '/api/me/password-code', token: token, body: {
+      'current': current,
+      'password': password,
+    });
+    return json['email'] as String? ?? '';
+  }
+
+  Future<void> setPassword(String token, int id, String password, {String? current, String? code}) async {
     await _send('POST', '/api/users/$id/password', token: token, body: {
       'password': password,
       'current': ?current,
+      'code': ?code,
     });
   }
 
