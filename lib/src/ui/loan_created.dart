@@ -132,7 +132,7 @@ class _LoanCreatedDialog extends StatelessWidget {
 
   Widget tile(String label, String value, {bool highlight = false}) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: highlight ? AppColors.green.withValues(alpha: 0.10) : AppColors.cardAlt,
         borderRadius: BorderRadius.circular(10),
@@ -176,7 +176,7 @@ class _LoanCreatedDialog extends StatelessWidget {
             children: [
               Container(
                 color: AppColors.green.withValues(alpha: 0.10),
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                 child: Column(
                   children: [
                     Align(
@@ -193,7 +193,7 @@ class _LoanCreatedDialog extends StatelessWidget {
                       decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.2), shape: BoxShape.circle),
                       child: const Icon(Icons.check_circle_outline, size: 36, color: AppColors.green),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     const Text('Empréstimo Criado!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     const Text('Contrato registrado com sucesso', style: TextStyle(fontSize: 12, color: AppColors.muted)),
@@ -221,12 +221,12 @@ class _LoanCreatedDialog extends StatelessWidget {
                       ],
                     ),
                     if (summary.rows.isNotEmpty) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       const Text(
                         'VENCIMENTOS',
                         style: TextStyle(fontSize: 11, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: AppColors.muted),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxHeight: 120),
                         child: ListView(
@@ -234,8 +234,8 @@ class _LoanCreatedDialog extends StatelessWidget {
                           children: [
                             for (final row in summary.rows)
                               Container(
-                                margin: const EdgeInsets.only(bottom: 2),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                margin: const EdgeInsets.only(bottom: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: AppColors.cardAlt.withValues(alpha: 0.6),
                                   borderRadius: BorderRadius.circular(6),
@@ -262,7 +262,7 @@ class _LoanCreatedDialog extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

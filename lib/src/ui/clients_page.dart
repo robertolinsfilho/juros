@@ -80,7 +80,7 @@ class _ClientsPageState extends State<ClientsPage> {
             prefixIcon: Icon(Icons.search),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (clients.isEmpty)
           const Panel(child: EmptyHint(icon: Icons.people_outline, title: 'Nenhum cliente', body: 'Cadastre a primeira pessoa para lançar um empréstimo.'))
         else

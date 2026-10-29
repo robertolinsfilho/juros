@@ -275,7 +275,7 @@ class _LoanDialogState extends State<_LoanDialog> {
               ),
               const SizedBox(height: 8),
               OutlinedButton(onPressed: addClient, child: const Text('Cadastrar novo cliente')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               FieldPair(
                 left: TextField(
                   controller: principal,
@@ -290,7 +290,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               DropdownButtonFormField<ContractMode>(
                 key: ValueKey(contractMode),
                 initialValue: contractMode,
@@ -303,7 +303,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   if (interestPlusCapital && frequency == Frequency.personalizado) frequency = Frequency.mensal;
                 }),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               if (!interestPlusCapital && !customSchedule) ...[
                 DropdownButtonFormField<RateMode>(
                   key: ValueKey(rateMode),
@@ -314,10 +314,10 @@ class _LoanDialogState extends State<_LoanDialog> {
                   ],
                   onChanged: (next) => setState(() => rateMode = next ?? rateMode),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               if (!interestPlusCapital) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<Frequency>(
                   key: ValueKey('freq-parcelado-$frequency'),
                   initialValue: frequency,
@@ -329,7 +329,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ),
               ],
               if (customSchedule) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<Frequency>(
                   key: ValueKey(chargeFrequency),
                   initialValue: chargeFrequency == Frequency.personalizado ? Frequency.mensal : chargeFrequency,
@@ -343,7 +343,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ),
               ],
               if (asksInterval && !interestPlusCapital) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: interval,
                   onChanged: (_) => setState(() {}),
@@ -354,7 +354,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 const Text('Use de 2 a 60 dias. Para 1 dia, escolha diária; acima de 60, mensal.', style: TextStyle(fontSize: 12)),
               ],
               if (!interestPlusCapital) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 FieldPair(
                   left: TextField(
                     controller: count,
@@ -374,7 +374,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                           child: Text(plan.isEmpty ? '' : fmtMoney(interest)),
                         ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (!customSchedule)
                   FieldPair(
                     left: TextField(
@@ -400,19 +400,19 @@ class _LoanDialogState extends State<_LoanDialog> {
               ],
               if (value > 0 && total > 0 && total < value)
                 Padding(
-                  padding: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.only(top: 16),
                   child: Text(
                     'Você vai receber ${fmtMoney(value - total)} a menos do que está emprestando.',
                     style: const TextStyle(color: Colors.amber),
                   ),
                 ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               OutlinedButton(onPressed: () => pickDate(first: false), child: Text('Data do contrato: ${fmtDate(contractDate)}')),
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Quando foi fechado', style: TextStyle(fontSize: 12)),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               const Text('Não cobra nos seguintes dias:'),
               const SizedBox(height: 8),
               Wrap(
@@ -441,7 +441,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ),
               ],
               if (interestPlusCapital) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<Frequency>(
                   key: ValueKey('freq-juros-$frequency'),
                   initialValue: frequency == Frequency.personalizado ? Frequency.mensal : frequency,
@@ -454,7 +454,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   onChanged: (next) => setState(() => frequency = next ?? frequency),
                 ),
                 if (asksInterval) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: interval,
                     onChanged: (_) => setState(() {}),
@@ -462,7 +462,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                     keyboardType: TextInputType.number,
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: parcelValue,
                   focusNode: parcelFocusJuros,
@@ -480,7 +480,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: () => pickDate(first: true),
                   child: Text('Data da primeira cobrança: ${fmtDate(firstCharge)}'),
@@ -533,7 +533,7 @@ class _LoanDialogState extends State<_LoanDialog> {
                   const SizedBox(height: 4),
                 ],
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 key: ValueKey(lateMode),
                 initialValue: lateMode,
@@ -547,19 +547,19 @@ class _LoanDialogState extends State<_LoanDialog> {
                 onChanged: (next) => setState(() => lateMode = next ?? lateMode),
               ),
               if (lateMode == 'percentual_dia' || lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: latePercent, decoration: const InputDecoration(labelText: 'Percentual ao dia'), keyboardType: TextInputType.number),
               ],
               if (lateMode == 'valor_fixo') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: lateDaily, decoration: const InputDecoration(labelText: 'Valor por dia'), keyboardType: TextInputType.number),
               ],
               if (lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: lateFixed, decoration: const InputDecoration(labelText: 'Taxa única'), keyboardType: TextInputType.number),
               ],
               if (MessageConfig(widget.repo).pixKeys.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: pixChoice,
                   isExpanded: true,
@@ -572,14 +572,14 @@ class _LoanDialogState extends State<_LoanDialog> {
                   onChanged: (value) => setState(() => pixChoice = value ?? ''),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: notes,
                 decoration: const InputDecoration(labelText: 'Observações (opcional)', hintText: 'Ex: Empréstimo para reforma da casa'),
                 maxLines: 2,
               ),
               if (error != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(error!, style: const TextStyle(color: Colors.redAccent)),
               ],
             ],

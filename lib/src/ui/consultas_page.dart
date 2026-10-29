@@ -146,7 +146,7 @@ class _Notice extends StatelessWidget {
         border: Border.all(color: AppColors.amber.withValues(alpha: 0.6)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Text(text, style: const TextStyle(color: AppColors.text)),
       ),
     );
@@ -251,17 +251,17 @@ class _ConsultaCard extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            right: 12,
-            top: 28,
+            right: 16,
+            top: 32,
             child: Icon(face.icon, size: 108, color: Colors.white.withValues(alpha: 0.16)),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(20),
@@ -274,19 +274,19 @@ class _ConsultaCard extends StatelessWidget {
                         height: 6,
                         decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Text(face.badge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(face.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.only(right: 88),
                   child: Text(face.summary, style: TextStyle(color: Colors.white.withValues(alpha: 0.82), height: 1.3)),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -300,7 +300,7 @@ class _ConsultaCard extends StatelessWidget {
                         Text(fmtMoney(product.cents), style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
                       ],
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Wrap(
                       spacing: 8,
@@ -344,7 +344,7 @@ class _Pill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: Space.compact, vertical: Space.compact),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -389,7 +389,7 @@ class _Catalog extends StatelessWidget {
         child: SizedBox(
           width: dialogWidth(context, 480),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,10 +397,10 @@ class _Catalog extends StatelessWidget {
                 Text(_faceOf(product).title, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(fmtMoney(product.cents), style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 for (final bullet in product.bullets)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Text('• $bullet'),
                   ),
                 const SizedBox(height: 8),
@@ -560,7 +560,7 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
       child: SizedBox(
         width: dialogWidth(context, 640),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -584,7 +584,7 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
                         ),
                     ],
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: document,
                   keyboardType: searchType == 'email' ? TextInputType.emailAddress : TextInputType.number,
@@ -602,7 +602,7 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
                 ),
               ] else ...[
                 Text(current.statusLabel, style: TextStyle(color: _statusColor(current.status), fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (current.done) ResultView(value: current.result) else if (current.error.isNotEmpty) Text(current.error),
                 if (current.status == 'consultando' || (current.status == 'paga' && current.error.isEmpty))
                   const Padding(
@@ -610,12 +610,12 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
                     child: Text('Aguardando a confirmação e o retorno dos dados.', style: TextStyle(color: AppColors.muted)),
                   ),
                 if (current.status == 'paga') ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   OutlinedButton(onPressed: busy ? null : retry, child: const Text('Buscar de novo')),
                 ],
               ],
               if (message != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(message!, style: const TextStyle(color: AppColors.amber)),
               ],
               Align(
@@ -641,7 +641,7 @@ class ConsultaResultDialog extends StatelessWidget {
       child: SizedBox(
         width: dialogWidth(context, 640),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -696,8 +696,8 @@ class _ScoreBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.cardAlt,
         borderRadius: BorderRadius.circular(12),
@@ -706,7 +706,7 @@ class _ScoreBanner extends StatelessWidget {
       child: Row(
         children: [
           Text(score, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.green)),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,8 +732,8 @@ class _ResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
         color: AppColors.cardAlt,
         borderRadius: BorderRadius.circular(12),
@@ -743,7 +743,7 @@ class _ResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           ...children,
         ],
       ),
@@ -1129,11 +1129,11 @@ List<Widget> _nodes(Object? value) {
     final widgets = <Widget>[];
     for (var i = 0; i < shown.length; i++) {
       final item = _decode(shown[i]);
-      if (i > 0) widgets.add(const Divider(height: 18));
+      if (i > 0) widgets.add(const Divider(height: 16));
       if (item is Map) {
         final title = _recordTitle(item, i);
         widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         ));
         widgets.addAll(_mapFields(item, skipTitle: title));

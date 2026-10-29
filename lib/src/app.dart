@@ -267,7 +267,7 @@ class _Expired extends StatelessWidget {
                     'Seus dados continuam guardados neste aparelho.',
                     style: TextStyle(color: AppColors.muted, height: 1.5),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   FilledButton(onPressed: onSubscribe, child: const Text('Ver planos e assinar')),
                   const SizedBox(height: 8),
                   TextButton(onPressed: onLogout, child: const Text('Sair')),
@@ -364,7 +364,7 @@ class _Shell extends StatelessWidget {
           onDestinationSelected: (index) => onSelected(destinations[index].$3),
           labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
           leading: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
               child: BrandName(size: 32, showName: extended),
@@ -407,7 +407,7 @@ class _AccountBar extends StatelessWidget {
     return Material(
       color: AppColors.sidebar,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final identity = Row(

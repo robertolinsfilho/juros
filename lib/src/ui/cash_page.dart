@@ -79,9 +79,9 @@ class _CashPageState extends State<CashPage> {
               'O saldo inicial não muda depois de ativar o caixa. Para corrigir, é preciso resetar e apagar o histórico.',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(controller: initial, decoration: const InputDecoration(labelText: 'Saldo inicial'), keyboardType: TextInputType.number),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(controller: alert, decoration: const InputDecoration(labelText: 'Alertar quando o saldo ficar abaixo de'), keyboardType: TextInputType.number),
           const SizedBox(height: 16),
           Align(
@@ -113,7 +113,7 @@ class _CashPageState extends State<CashPage> {
           left: TextField(controller: amount, decoration: const InputDecoration(labelText: 'Valor'), keyboardType: TextInputType.number),
           right: TextField(controller: note, decoration: const InputDecoration(labelText: 'Observação')),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           children: [

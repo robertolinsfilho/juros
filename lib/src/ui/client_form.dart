@@ -71,17 +71,17 @@ class _ClientDialogState extends State<_ClientDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: name, autofocus: true, decoration: const InputDecoration(labelText: 'Nome completo')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(controller: document, decoration: const InputDecoration(labelText: 'CPF / RG')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: phone,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(labelText: 'Telefone / WhatsApp'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(controller: zip, decoration: const InputDecoration(labelText: 'CEP')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(controller: address, decoration: const InputDecoration(labelText: 'Endereço')),
               Align(
                 alignment: Alignment.centerLeft,
@@ -92,7 +92,7 @@ class _ClientDialogState extends State<_ClientDialog> {
               ),
               if (showWork) TextField(controller: work, decoration: const InputDecoration(labelText: 'Endereço do trabalho')),
               if (error != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(error!, style: const TextStyle(color: Colors.redAccent)),
               ],
             ],

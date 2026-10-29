@@ -54,14 +54,14 @@ class _ReportsPageState extends State<ReportsPage> {
           MetricCard(label: 'EM ATRASO', value: fmtMoney(data.overdueCents), caption: 'situação de hoje', accent: AppColors.red),
           MetricCard(label: 'INADIMPLÊNCIA', value: '${(data.delinquency * 100).toStringAsFixed(1)}%', caption: 'parcelas atrasadas / já vencidas'),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         metricGrid([
           MetricCard(label: 'JUROS RECEBIDOS', value: fmtMoney(data.interestCents), caption: 'sem a mora'),
           MetricCard(label: 'MORA RECEBIDA', value: fmtMoney(data.lateCents), caption: 'atraso cobrado'),
           MetricCard(label: 'CAPITAL RECUPERADO', value: fmtMoney(data.capitalBackCents), caption: 'principal que voltou'),
           MetricCard(label: 'TOTAL RECEBIDO', value: fmtMoney(data.receivedCents), caption: 'capital + juros + mora'),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         sideBySide(
           MetricCard(label: 'CAPITAL EM ABERTO', value: fmtMoney(data.openCapitalCents), caption: 'principal ainda na rua'),
           Panel(
@@ -69,9 +69,9 @@ class _ReportsPageState extends State<ReportsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Recebido por tipo', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text('Parcelado: ${fmtMoney(data.amortizedCents)}'),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text('Juros + capital no final: ${fmtMoney(data.interestOnlyCents)}'),
               ],
             ),

@@ -97,13 +97,13 @@ class _SignupPageState extends State<SignupPage> {
                       ),
                     ),
                   const Center(child: BrandLockup(width: 220)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   const Text(
                     '3 dias grátis. Sem cartão.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   Panel(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,7 +122,7 @@ class _SignupPageState extends State<SignupPage> {
                           textCapitalization: TextCapitalization.words,
                           decoration: const InputDecoration(labelText: 'Seu nome'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: email,
                           keyboardType: TextInputType.emailAddress,
@@ -130,21 +130,21 @@ class _SignupPageState extends State<SignupPage> {
                           autocorrect: false,
                           decoration: const InputDecoration(labelText: 'E-mail'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: username,
                           textInputAction: TextInputAction.next,
                           autocorrect: false,
                           decoration: const InputDecoration(labelText: 'Usuário para entrar'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: password,
                           obscureText: true,
                           textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(labelText: 'Senha'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: confirm,
                           obscureText: true,
@@ -153,7 +153,7 @@ class _SignupPageState extends State<SignupPage> {
                           decoration: const InputDecoration(labelText: 'Confirmar senha'),
                         ),
                         if (error != null) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(error!, style: const TextStyle(color: AppColors.red)),
                         ],
                         const SizedBox(height: 16),

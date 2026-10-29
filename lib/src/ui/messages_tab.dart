@@ -114,21 +114,21 @@ class _MessagesTabState extends State<MessagesTab> {
             'Aparece no final de toda mensagem, no lugar de {{assinatura}}.',
             style: TextStyle(color: AppColors.muted),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text('Identificação', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           toggleField('Seu nome', creditor, showCreditor, (value) => showCreditor = value),
           const SizedBox(height: 8),
           toggleField('Empresa', company, showCompany, (value) => showCompany = value),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text('Pagamento', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           toggleField('Chave PIX', pix, showPix, (value) => showPix = value),
           const SizedBox(height: 4),
           InkWell(
             onTap: () => setState(() => pixOpen = !pixOpen),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
                   Icon(pixOpen ? Icons.expand_less : Icons.expand_more, size: 18, color: AppColors.muted),
@@ -183,7 +183,7 @@ class _MessagesTabState extends State<MessagesTab> {
               style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text('Lista de parcelas', style: TextStyle(fontWeight: FontWeight.w600)),
           Row(
             children: [
@@ -204,9 +204,9 @@ class _MessagesTabState extends State<MessagesTab> {
           ),
           const SizedBox(height: 8),
           const Text('Pré-visualização', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           WhatsAppText(previewSignature),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FilledButton(onPressed: saveSignature, child: const Text('Salvar assinatura')),
         ],
       ),
@@ -317,7 +317,7 @@ class _MessagesTabState extends State<MessagesTab> {
     final edited = config.hasOverride(kind.id);
     final usingCustom = customs.any((item) => item.id == activeId);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: AppColors.card,
         clipBehavior: Clip.antiAlias,
@@ -329,7 +329,7 @@ class _MessagesTabState extends State<MessagesTab> {
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             key: PageStorageKey('kind-${kind.id}'),
-            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
             title: Row(
@@ -347,7 +347,7 @@ class _MessagesTabState extends State<MessagesTab> {
             subtitle: Text(flat, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted)),
             children: [
               WhatsAppText(sampleOf(body)),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -358,7 +358,7 @@ class _MessagesTabState extends State<MessagesTab> {
                 ],
               ),
               if (customs.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 const Text('Meus templates', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 for (final custom in customs)
                   Row(
@@ -392,7 +392,7 @@ class _MessagesTabState extends State<MessagesTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         signatureCard(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Row(
           children: [
             const Expanded(
@@ -410,7 +410,7 @@ class _MessagesTabState extends State<MessagesTab> {
           'Escolha o texto de cada tipo de mensagem. Use variáveis como {{cliente_nome}} e {{assinatura}}.',
           style: TextStyle(color: AppColors.muted),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         for (final kind in templateKinds) kindCard(kind),
       ],
     );
@@ -522,7 +522,7 @@ class _TemplateEditorState extends State<_TemplateEditor> {
             children: [
               if (widget.showName) ...[
                 TextField(controller: name, decoration: const InputDecoration(labelText: 'Nome do template')),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               if (!widget.lockKind) ...[
                 DropdownButtonFormField<String>(
@@ -534,7 +534,7 @@ class _TemplateEditorState extends State<_TemplateEditor> {
                   ],
                   onChanged: (value) => setState(() => kind = value ?? kind),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               TextField(
                 controller: body,
@@ -543,20 +543,20 @@ class _TemplateEditorState extends State<_TemplateEditor> {
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(labelText: 'Mensagem', alignLabelWithHint: true),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               const Text('Variáveis (toque para inserir)', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   for (final variable in current.variables)
                     ActionChip(label: Text('{{$variable}}'), onPressed: () => insert(variable)),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               const Text('Pré-visualização', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               WhatsAppText(renderTemplate(body.text, sampleVariables(widget.signature))),
             ],
           ),

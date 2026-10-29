@@ -77,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.green.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -89,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 32),
                   Panel(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -108,7 +108,7 @@ class _LoginPageState extends State<LoginPage> {
                           autocorrect: false,
                           decoration: const InputDecoration(labelText: 'Usuário'),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: password,
                           obscureText: true,
@@ -117,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
                           decoration: const InputDecoration(labelText: 'Senha'),
                         ),
                         if (error != null) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(error!, style: const TextStyle(color: AppColors.red)),
                         ],
                         const SizedBox(height: 16),

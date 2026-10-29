@@ -118,7 +118,7 @@ class _UsersPageState extends State<UsersPage> {
                               children: [
                                 for (final item in items.take(6))
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.only(bottom: 8),
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -144,7 +144,7 @@ class _UsersPageState extends State<UsersPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ],
                 Panel(
                   padding: EdgeInsets.zero,
@@ -242,11 +242,11 @@ class _UserDialogState extends State<_UserDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: name, decoration: const InputDecoration(labelText: 'Nome')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(controller: username, decoration: const InputDecoration(labelText: 'Usuário para login')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Senha')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: role,
                 decoration: const InputDecoration(labelText: 'Nível de acesso'),
@@ -257,7 +257,7 @@ class _UserDialogState extends State<_UserDialog> {
                 onChanged: (value) => setState(() => role = value ?? 'comum'),
               ),
               if (error != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(error!, style: const TextStyle(color: AppColors.red)),
               ],
             ],

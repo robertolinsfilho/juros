@@ -76,12 +76,12 @@ class _DashboardPageState extends State<DashboardPage> {
           MetricCard(label: 'RECEBIDO NO MÊS', value: fmtMoney(data.receivedMonthCents), caption: 'pela data do pagamento', accent: AppColors.green),
           MetricCard(label: 'CLIENTES', value: '${data.clientCount}', caption: 'cadastrados'),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         sideBySide(
           MetricCard(label: 'CAPITAL NA RUA', value: fmtMoney(data.capitalCents), caption: 'principal ainda em aberto', accent: AppColors.green),
           MetricCard(label: 'JUROS DO MÊS', value: fmtMoney(data.profitMonthCents), caption: 'juros a receber neste mês', accent: AppColors.amber),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         sideBySide(
           Panel(
             child: Column(
@@ -100,7 +100,7 @@ class _DashboardPageState extends State<DashboardPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Empréstimos por status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _Count(label: 'Aberto', value: data.openLoans, color: AppColors.blue),
                 _Count(label: 'Atrasado', value: data.lateLoans, color: AppColors.red),
                 _Count(label: 'Quitado', value: data.settledLoans, color: AppColors.green),
@@ -114,7 +114,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         sideBySide(
           Panel(
             child: Column(
@@ -142,9 +142,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 8),
                 for (final week in data.weeks)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Wrap(
-                      spacing: 12,
+                      spacing: 16,
                       runSpacing: 4,
                       alignment: WrapAlignment.spaceBetween,
                       children: [

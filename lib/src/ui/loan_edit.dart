@@ -162,8 +162,8 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
 
   Widget banner(String title, String body) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.amber.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
@@ -173,7 +173,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w600, fontSize: 12)),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(body, style: const TextStyle(fontSize: 12)),
         ],
       ),
@@ -197,7 +197,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Cliente: ${widget.loan.clientName}', style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               if (widget.hasPayments)
                 banner(
                   'Há parcelas pagas — somente mora, dias sem cobrança e observações podem ser alterados.',
@@ -229,13 +229,13 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               InputDecorator(
                 decoration: const InputDecoration(labelText: 'Modo do contrato'),
                 child: Text(base.contractMode.label),
               ),
               if (!interestOnly && !customSchedule) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<RateMode>(
                   key: ValueKey('rate-$rateMode'),
                   initialValue: rateMode,
@@ -243,7 +243,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                   items: [for (final mode in RateMode.values) DropdownMenuItem(value: mode, child: Text(mode.label))],
                   onChanged: locked ? null : (next) => setState(() => rateMode = next ?? rateMode),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<Frequency>(
                   key: ValueKey('freq-$frequency'),
                   initialValue: frequency,
@@ -256,7 +256,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                   onChanged: locked ? null : (next) => setState(() => frequency = next ?? frequency),
                 ),
                 if (asksInterval) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: interval,
                     enabled: !locked,
@@ -265,7 +265,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                     keyboardType: TextInputType.number,
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 FieldPair(
                   left: TextField(
                     controller: count,
@@ -279,7 +279,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                     child: Text(locked ? '' : (plan.isEmpty ? '' : fmtMoney(interest))),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 FieldPair(
                   left: InputDecorator(
                     decoration: const InputDecoration(labelText: 'Valor da parcela (R\$)'),
@@ -291,7 +291,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: locked ? null : pickDate,
                 child: Text('Data do contrato: ${fmtDate(contractDate)}'),
@@ -300,7 +300,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                 alignment: Alignment.centerLeft,
                 child: Text('Quando foi fechado', style: TextStyle(fontSize: 12)),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               const Text('Não cobra nos seguintes dias:'),
               const SizedBox(height: 8),
               Wrap(
@@ -328,7 +328,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                   ],
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 key: ValueKey('late-$lateMode'),
                 initialValue: lateMode,
@@ -342,18 +342,18 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                 onChanged: (next) => setState(() => lateMode = next ?? lateMode),
               ),
               if (lateMode == 'percentual_dia' || lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: latePercent, decoration: const InputDecoration(labelText: 'Percentual ao dia'), keyboardType: TextInputType.number),
               ],
               if (lateMode == 'valor_fixo') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: lateDaily, decoration: const InputDecoration(labelText: 'Valor por dia'), keyboardType: TextInputType.number),
               ],
               if (lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(controller: lateFixed, decoration: const InputDecoration(labelText: 'Taxa única'), keyboardType: TextInputType.number),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: notes,
                 decoration: const InputDecoration(labelText: 'Observações (opcional)'),
@@ -367,7 +367,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                 ),
               ],
               if (error != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(error!, style: const TextStyle(color: Colors.redAccent)),
               ],
             ],

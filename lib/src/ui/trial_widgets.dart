@@ -22,7 +22,7 @@ class TrialBar extends StatelessWidget {
       child: InkWell(
         onTap: onSubscribe,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -35,7 +35,7 @@ class TrialBar extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               const Text(
                 'Assinar agora →',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5),
@@ -59,7 +59,7 @@ class TrialNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final vencido = daysLeft <= 0;
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: AccessColors.orange.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
@@ -73,7 +73,7 @@ class TrialNotice extends StatelessWidget {
             decoration: BoxDecoration(color: AccessColors.orange.withValues(alpha: 0.18), shape: BoxShape.circle),
             child: const Icon(Icons.auto_awesome, size: 17, color: AccessColors.orange),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +82,7 @@ class TrialNotice extends StatelessWidget {
                   vencido ? 'Modo de teste — encerrado' : 'Modo de teste — $daysLeft ${daysLeft == 1 ? 'dia restante' : 'dias restantes'}',
                   style: const TextStyle(color: AccessColors.orange, fontWeight: FontWeight.w700, fontSize: 14),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 const Text(
                   'Período de teste gratuito do Acertaí',
                   style: TextStyle(color: AppColors.muted, fontSize: 12.5),
@@ -96,7 +96,7 @@ class TrialNotice extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AccessColors.orange,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
             child: const Text('Assinar'),
           ),

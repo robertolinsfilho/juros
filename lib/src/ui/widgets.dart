@@ -21,17 +21,17 @@ class PageHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: narrow ? Theme.of(context).textTheme.headlineSmall : Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 4),
+        const SizedBox(height: Space.tight),
         Text(subtitle, style: const TextStyle(color: AppColors.muted)),
       ],
     );
-    final actionBlock = Wrap(spacing: 8, runSpacing: 8, children: actions);
+    final actionBlock = Wrap(spacing: Space.compact, runSpacing: Space.compact, children: actions);
     if (narrow || actions.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           titleBlock,
-          if (actions.isNotEmpty) ...[const SizedBox(height: 12), actionBlock],
+          if (actions.isNotEmpty) ...[const SizedBox(height: Space.base), actionBlock],
         ],
       );
     }
@@ -39,7 +39,7 @@ class PageHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(child: titleBlock),
-        const SizedBox(width: 12),
+        const SizedBox(width: Space.base),
         actionBlock,
       ],
     );
@@ -47,7 +47,8 @@ class PageHeader extends StatelessWidget {
 }
 
 EdgeInsets pagePadding(BuildContext context) {
-  return EdgeInsets.all(MediaQuery.sizeOf(context).width < 720 ? 16 : 24);
+  final wide = MediaQuery.sizeOf(context).width >= 720;
+  return EdgeInsets.all(wide ? Space.page : Space.base);
 }
 
 double dialogWidth(BuildContext context, double maxWidth) {
@@ -69,7 +70,7 @@ class FieldPair extends StatelessWidget {
           return Column(
             children: [
               left,
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.base),
               right,
             ],
           );
@@ -78,7 +79,7 @@ class FieldPair extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: left),
-            const SizedBox(width: 12),
+            const SizedBox(width: Space.base),
             Expanded(child: right),
           ],
         );
@@ -108,21 +109,21 @@ class RecordTile extends StatelessWidget {
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         if (subtitle != null) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.tight),
           Text(subtitle!, style: const TextStyle(color: AppColors.muted)),
         ],
       ],
     );
     final buttons = Wrap(
-      spacing: 4,
-      runSpacing: 4,
+      spacing: Space.compact,
+      runSpacing: Space.compact,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: actions,
     );
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
         child: LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 640) {
@@ -130,14 +131,14 @@ class RecordTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   text,
-                  if (actions.isNotEmpty) ...[const SizedBox(height: 8), buttons],
+                  if (actions.isNotEmpty) ...[const SizedBox(height: Space.compact), buttons],
                 ],
               );
             }
             return Row(
               children: [
                 Expanded(child: text),
-                if (actions.isNotEmpty) ...[const SizedBox(width: 12), buttons],
+                if (actions.isNotEmpty) ...[const SizedBox(width: Space.base), buttons],
               ],
             );
           },
@@ -148,7 +149,7 @@ class RecordTile extends StatelessWidget {
 }
 
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(16)});
+  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(Space.base)});
 
   final Widget child;
   final EdgeInsets padding;
@@ -187,13 +188,13 @@ class MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12, letterSpacing: 0.4)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.compact),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: accent)),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.tight),
           Text(caption, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
       ),
@@ -211,13 +212,13 @@ class EmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28),
+      padding: const EdgeInsets.symmetric(vertical: Space.section),
       child: Column(
         children: [
           Icon(icon, color: AppColors.muted, size: 36),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.compact),
           Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.tight),
           Text(body, style: const TextStyle(color: AppColors.muted), textAlign: TextAlign.center),
         ],
       ),
@@ -239,7 +240,7 @@ class StatusPill extends StatelessWidget {
       _ => AppColors.blue,
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Space.compact, vertical: Space.tight),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(99),
@@ -272,7 +273,7 @@ Widget metricGrid(List<Widget> cards) {
   return LayoutBuilder(
     builder: (context, constraints) {
       final columns = constraints.maxWidth >= 1000 ? 4 : constraints.maxWidth >= 480 ? 2 : 1;
-      const gap = 12.0;
+      const gap = Space.base;
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
       return Wrap(
         spacing: gap,
@@ -290,7 +291,7 @@ Widget sideBySide(Widget left, Widget right) {
         return Column(
           children: [
             left,
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.base),
             right,
           ],
         );
@@ -299,7 +300,7 @@ Widget sideBySide(Widget left, Widget right) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: left),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.base),
           Expanded(child: right),
         ],
       );

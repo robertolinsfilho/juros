@@ -35,7 +35,7 @@ class _TrashPageState extends State<TrashPage> {
             ChoiceChip(label: const Text('Clientes'), selected: !loans, onSelected: (_) => setState(() => loans = false)),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (loans && loanItems.isEmpty)
           const Panel(child: EmptyHint(icon: Icons.delete_outline, title: 'Lixeira vazia', body: 'Nenhum empréstimo excluído.')),
         if (!loans && clients.isEmpty)

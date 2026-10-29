@@ -1,5 +1,15 @@
 import 'package:flutter/material.dart';
 
+/// Espaçamento de todo o site, em passos de 8. O 4 só separa título e legenda.
+abstract final class Space {
+  static const tight = 4.0;
+  static const compact = 8.0;
+  static const base = 16.0;
+  static const page = 24.0;
+  static const section = 32.0;
+  static const block = 48.0;
+}
+
 class AppColors {
   /// Fundo azul-marinho bem escuro, como o da logo.
   static const bg = Color(0xFF060E18);
@@ -65,13 +75,15 @@ ThemeData buildTheme() {
     ),
     dialogTheme: const DialogThemeData(
       backgroundColor: AppColors.card,
+      insetPadding: EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.page),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(18)),
+        borderRadius: BorderRadius.all(Radius.circular(16)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.cardAlt,
+      contentPadding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
       labelStyle: const TextStyle(color: AppColors.muted),
       hintStyle: const TextStyle(color: AppColors.muted),
       border: OutlineInputBorder(
@@ -91,7 +103,7 @@ ThemeData buildTheme() {
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.green,
         foregroundColor: AppColors.greenInk,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
@@ -99,7 +111,7 @@ ThemeData buildTheme() {
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.text,
         side: const BorderSide(color: AppColors.line),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),

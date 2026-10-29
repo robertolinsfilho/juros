@@ -35,7 +35,7 @@ class WhatsAppText extends StatelessWidget {
     final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardAlt,
         borderRadius: BorderRadius.circular(10),

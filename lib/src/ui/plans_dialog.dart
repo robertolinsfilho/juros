@@ -137,7 +137,7 @@ class _PlansDialogState extends State<_PlansDialog> {
 
   Widget banner() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF2A2416),
         borderRadius: BorderRadius.circular(12),
@@ -146,7 +146,7 @@ class _PlansDialogState extends State<_PlansDialog> {
       child: Row(
         children: [
           const Icon(Icons.schedule, size: 20, color: Color(0xFFE6B325)),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +155,7 @@ class _PlansDialogState extends State<_PlansDialog> {
                   'Seu teste termina em ${widget.daysLeft} dia(s).',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 const Text(
                   'Assine agora para não perder o acesso.',
                   style: TextStyle(color: AppColors.muted, fontSize: 12.5),
@@ -172,7 +172,7 @@ class _PlansDialogState extends State<_PlansDialog> {
     final busy = busyPlan != null && busyPlan!.startsWith('${plan.id}:');
     final buttonText = Text(busy ? 'Abrindo checkout...' : 'Assinar agora');
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: const Color(0xFF151D27),
         borderRadius: BorderRadius.circular(14),
@@ -189,17 +189,17 @@ class _PlansDialogState extends State<_PlansDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(plan.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(plan.subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.3)),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Text(plan.price, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ],
           ),
           if (plan.features.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             for (final feature in plan.features)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -255,7 +255,7 @@ class _PlansDialogState extends State<_PlansDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -267,7 +267,7 @@ class _PlansDialogState extends State<_PlansDialog> {
                     child: Column(
                       children: [
                         _CardIcon(),
-                        SizedBox(height: 14),
+                        SizedBox(height: 16),
                         Text(
                           'Planos e Assinatura',
                           textAlign: TextAlign.center,
@@ -299,17 +299,17 @@ class _PlansDialogState extends State<_PlansDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               banner(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               for (final plan in _plans) ...[
                 planCard(plan),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
               ],
               if (message != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(message!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
               const Text(
                 'Pagamento pelo Mercado Pago · cancele quando quiser',

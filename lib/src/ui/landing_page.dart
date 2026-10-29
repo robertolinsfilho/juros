@@ -83,7 +83,7 @@ class _Header extends StatelessWidget {
         color: AppColors.bg,
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -103,7 +103,7 @@ class _Header extends StatelessWidget {
               FilledButton(
                 onPressed: onCreate,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(MediaQuery.sizeOf(context).width >= 480 ? 'Criar conta grátis' : 'Criar conta'),
@@ -136,7 +136,7 @@ class _Band extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
-        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 56), child: child),
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56), child: child),
       ),
     );
   }
@@ -183,7 +183,7 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
       child: Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
     );
@@ -191,7 +191,7 @@ class _Pill extends StatelessWidget {
 }
 
 class _Box extends StatelessWidget {
-  const _Box({required this.child, this.color, this.border, this.padding = const EdgeInsets.all(18), this.radius = 16});
+  const _Box({required this.child, this.color, this.border, this.padding = const EdgeInsets.all(16), this.radius = 16});
 
   final Widget child;
   final Color? color;
@@ -227,7 +227,7 @@ class _Hero extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.green.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(20),
@@ -238,7 +238,7 @@ class _Hero extends StatelessWidget {
             style: TextStyle(color: AppColors.green, fontSize: 12),
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         Text.rich(
           TextSpan(
             style: TextStyle(fontSize: wide ? 56 : 40, fontWeight: FontWeight.w800, height: 1.05, letterSpacing: -1.2),
@@ -248,25 +248,25 @@ class _Hero extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         const Text(
           'Veja de relance quem vence hoje, quem atrasou e quem já pagou. '
           'Cadastre clientes, monte o empréstimo e cobre pelo WhatsApp em poucos toques.',
           style: TextStyle(color: AppColors.muted, fontSize: 17, height: 1.5),
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 24),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 16,
+          runSpacing: 16,
           children: [
             FilledButton(
               onPressed: onCreate,
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18)),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
               child: const Text('Criar conta grátis por 3 dias', textAlign: TextAlign.center),
             ),
             OutlinedButton.icon(
               onPressed: onHow,
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18)),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
               icon: const Icon(Icons.play_arrow, size: 18),
               label: const Text('Ver como funciona'),
             ),
@@ -300,7 +300,7 @@ class _Hero extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, wide ? 72 : 40, 20, wide ? 80 : 48),
+              padding: EdgeInsets.fromLTRB(24, wide ? 72 : 40, 24, wide ? 80 : 48),
               child: wide
                   ? Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -328,7 +328,7 @@ class _DashboardPreview extends StatelessWidget {
   Widget row(String name, String status, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.bg.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
@@ -346,12 +346,12 @@ class _DashboardPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 22),
+      padding: const EdgeInsets.only(top: 24, bottom: 24),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(22),
@@ -362,16 +362,16 @@ class _DashboardPreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Recebimentos', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 const Row(
                   children: [
                     Expanded(child: Text('Prévia do painel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
                     _Pill('EXEMPLO', AppColors.green),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 const SizedBox(height: 120, width: double.infinity, child: CustomPaint(painter: _ChartPainter())),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 row('Maria S.', 'Vence hoje', AppColors.amber),
                 row('João P.', 'Pago', AppColors.green),
                 row('Carlos M.', 'Vence amanhã', AppColors.muted),
@@ -384,7 +384,7 @@ class _DashboardPreview extends StatelessWidget {
             child: _Box(
               color: AppColors.card,
               border: AppColors.amber.withValues(alpha: 0.5),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               radius: 12,
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -406,7 +406,7 @@ class _DashboardPreview extends StatelessWidget {
             bottom: -16,
             left: -6,
             child: _Box(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               radius: 12,
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -496,15 +496,15 @@ class _Strip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       decoration: const BoxDecoration(
         color: AppColors.sidebar,
         border: Border.symmetric(horizontal: BorderSide(color: AppColors.line)),
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 28,
-        runSpacing: 10,
+        spacing: 32,
+        runSpacing: 8,
         children: [
           for (final item in items)
             Row(
@@ -530,7 +530,7 @@ class _Highlight extends StatelessWidget {
 
   Widget bullet(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -543,10 +543,10 @@ class _Highlight extends StatelessWidget {
             ),
             child: Icon(icon, size: 18, color: AppColors.green),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 7),
+              padding: const EdgeInsets.only(top: 8),
               child: Text(text, style: const TextStyle(fontSize: 15, height: 1.3)),
             ),
           ),
@@ -560,7 +560,7 @@ class _Highlight extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _Eyebrow('Para não esquecer ninguém', center: false),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const _Title('Abriu o sistema, já sabe quem está devendo', center: false),
         const SizedBox(height: 16),
         const Text(
@@ -568,7 +568,7 @@ class _Highlight extends StatelessWidget {
           'o que venceu e o que vence logo, sem depender da sua memória.',
           style: TextStyle(color: AppColors.muted, fontSize: 16, height: 1.5),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         bullet(Icons.notifications_none, 'Vencidos e a vencer aparecem assim que você entra'),
         bullet(Icons.chat_bubble_outline, 'Cobrança no WhatsApp com a mensagem já pronta'),
         bullet(Icons.check_circle_outline, 'Parcela recebida sai da lista de pendências na hora'),
@@ -578,8 +578,8 @@ class _Highlight extends StatelessWidget {
 
   Widget notice(String name, String status, String amount, Color color, IconData icon, {bool tinted = true}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: tinted ? color.withValues(alpha: 0.08) : AppColors.cardAlt,
         borderRadius: BorderRadius.circular(12),
@@ -593,7 +593,7 @@ class _Highlight extends StatelessWidget {
             decoration: BoxDecoration(color: AppColors.bg.withValues(alpha: 0.6), shape: BoxShape.circle),
             child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +612,7 @@ class _Highlight extends StatelessWidget {
   Widget card() {
     return _Box(
       radius: 22,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -624,7 +624,7 @@ class _Highlight extends StatelessWidget {
               _Pill('EXEMPLO ILUSTRATIVO', AppColors.green),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           notice('Marcos A.', 'Pago', 'R\$ 480', AppColors.green, Icons.check_circle_outline),
           notice('Paula R.', 'Vence amanhã', 'R\$ 600', AppColors.muted, Icons.schedule, tinted: false),
           notice('Rafael T.', 'Atrasado há 1 dia', 'R\$ 900', AppColors.red, Icons.warning_amber_rounded),
@@ -662,7 +662,7 @@ class _Compare extends StatelessWidget {
     return _Box(
       color: good ? AppColors.green.withValues(alpha: 0.05) : AppColors.card,
       border: good ? AppColors.green.withValues(alpha: 0.35) : AppColors.line,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       radius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,7 +679,7 @@ class _Compare extends StatelessWidget {
           const SizedBox(height: 16),
           for (final item in items)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -690,7 +690,7 @@ class _Compare extends StatelessWidget {
                     decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
                     child: Icon(good ? Icons.check : Icons.close, size: 12, color: color),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       item,
@@ -722,7 +722,7 @@ class _Compare extends StatelessWidget {
     return Column(
       children: [
         const _Eyebrow('A diferença'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const _Title('Do caderno para o controle de verdade'),
         const SizedBox(height: 32),
         ConstrainedBox(
@@ -763,7 +763,7 @@ class _Features extends StatelessWidget {
 
   Widget small(IconData icon, String title, String text) {
     return _Box(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -771,7 +771,7 @@ class _Features extends StatelessWidget {
           iconBox(icon),
           const SizedBox(height: 16),
           Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4)),
         ],
       ),
@@ -781,7 +781,7 @@ class _Features extends StatelessWidget {
   Widget counter(String label, String value, Color color, {bool tinted = true}) {
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: tinted ? color.withValues(alpha: 0.08) : AppColors.bg.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),
@@ -800,21 +800,21 @@ class _Features extends StatelessWidget {
     return _Box(
       color: AppColors.green.withValues(alpha: 0.05),
       border: AppColors.green.withValues(alpha: 0.3),
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       radius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           iconBox(Icons.notifications_none),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           const Text('Vencimentos em dia', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Text(
             'O que vence hoje e nesta semana, reunido numa tela só.',
             style: TextStyle(color: AppColors.muted, fontSize: 14, height: 1.4),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           counter('Vencem hoje', '3', AppColors.amber),
           counter('Vencem amanhã', '2', AppColors.muted, tinted: false),
           counter('Recebidos na semana', '8', AppColors.green),
@@ -833,7 +833,7 @@ class _Features extends StatelessWidget {
     return Column(
       children: [
         const _Eyebrow('Funcionalidades'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const _Title('Tudo que o dia a dia pede, sem complicação'),
         const SizedBox(height: 32),
         if (wide) ...[
@@ -869,7 +869,7 @@ class _Features extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final item in [big(), a, b, c, d, e]) Padding(padding: const EdgeInsets.only(bottom: 14), child: item),
+              for (final item in [big(), a, b, c, d, e]) Padding(padding: const EdgeInsets.only(bottom: 16), child: item),
             ],
           ),
       ],
@@ -909,7 +909,7 @@ class _Steps extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
               ],
             ),
@@ -932,13 +932,13 @@ class _Steps extends StatelessWidget {
             decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, size: 17, color: AppColors.green),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 12, height: 1.35)),
               ],
             ),
@@ -958,7 +958,7 @@ class _Steps extends StatelessWidget {
     return Column(
       children: [
         const _Eyebrow('Como funciona'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const _Title('Três passos, do cadastro à cobrança'),
         const SizedBox(height: 32),
         ConstrainedBox(
@@ -966,9 +966,9 @@ class _Steps extends StatelessWidget {
           child: Column(
             children: [
               step(0, 'Cadastre o cliente', 'Nome e WhatsApp bastam para começar.'),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               step(1, 'Monte o empréstimo', 'Informe valor, juros, parcelas e frequência.'),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               step(2, 'Acompanhe os recebimentos', 'Veja vencimentos, pagamentos e saldo sempre atualizados.'),
             ],
           ),
@@ -980,7 +980,7 @@ class _Steps extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 14),
+                  if (i > 0) const SizedBox(width: 16),
                   Expanded(child: items[i]),
                 ],
               ],
@@ -988,7 +988,7 @@ class _Steps extends StatelessWidget {
           )
         else
           Column(
-            children: [for (final item in items) Padding(padding: const EdgeInsets.only(bottom: 12), child: item)],
+            children: [for (final item in items) Padding(padding: const EdgeInsets.only(bottom: 16), child: item)],
           ),
       ],
     );
@@ -1035,16 +1035,16 @@ class _Faq extends StatelessWidget {
     return Column(
       children: [
         const _Eyebrow('Dúvidas'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const _Title('Perguntas frequentes'),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: Column(
             children: [
               for (final item in questions)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Material(
                     color: AppColors.card,
                     clipBehavior: Clip.antiAlias,
@@ -1055,8 +1055,8 @@ class _Faq extends StatelessWidget {
                     child: Theme(
                       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                       child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-                        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         expandedAlignment: Alignment.centerLeft,
                         title: Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                         children: [
@@ -1085,7 +1085,7 @@ class _Cta extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
         border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
@@ -1102,7 +1102,7 @@ class _Cta extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           const Text(
             'Comece agora e use 3 dias grátis. Depois, a partir de R\$ 49,99 por mês.',
             textAlign: TextAlign.center,
@@ -1111,7 +1111,7 @@ class _Cta extends StatelessWidget {
           const SizedBox(height: 24),
           FilledButton(
             onPressed: onCreate,
-            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18)),
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
             child: const Text('Criar conta grátis por 3 dias'),
           ),
         ],
@@ -1127,7 +1127,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
       child: Center(
         child: ConstrainedBox(
@@ -1135,7 +1135,7 @@ class _Footer extends StatelessWidget {
           child: Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 12,
+            runSpacing: 16,
             spacing: 24,
             children: [
               const _Logo(),

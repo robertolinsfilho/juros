@@ -209,7 +209,7 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Assinatura', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 widget.user.access.subscriber
                     ? 'Assinatura ativa · ${widget.user.access.daysLeft} dia(s) restantes'
@@ -218,7 +218,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     : 'Teste encerrado',
                 style: const TextStyle(color: AppColors.muted),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
@@ -239,19 +239,19 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               if (cancelError != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(cancelError!, style: const TextStyle(color: AppColors.red)),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(controller: name, decoration: const InputDecoration(labelText: 'Nome')),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text('Usuário: ${widget.user.username}', style: const TextStyle(color: AppColors.muted)),
               if (widget.user.email.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -260,11 +260,11 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 4),
               Text('Nível: ${widget.user.roleLabel}', style: const TextStyle(color: AppColors.muted)),
               if (nameError != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(nameError!, style: const TextStyle(color: AppColors.red)),
               ],
               if (nameOk != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(nameOk!, style: const TextStyle(color: AppColors.green)),
               ],
               const SizedBox(height: 16),
@@ -278,32 +278,32 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Trocar senha', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 confirmsByEmail
                     ? 'A troca pede um código enviado para o e-mail cadastrado.'
                     : 'Esta conta não tem e-mail. A senha muda com a senha atual.',
                 style: const TextStyle(color: AppColors.muted),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: currentPassword,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Senha atual'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: nextPassword,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Nova senha'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: confirmPassword,
                 obscureText: true,
@@ -311,9 +311,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 onSubmitted: (_) => confirmsByEmail ? sendCode() : savePassword(),
               ),
               if (confirmsByEmail && codeSentTo != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text('Código enviado para $codeSentTo.', style: const TextStyle(color: AppColors.green)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: emailCode,
                   keyboardType: TextInputType.number,
@@ -322,11 +322,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
               if (passwordError != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(passwordError!, style: const TextStyle(color: AppColors.red)),
               ],
               if (passwordOk != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(passwordOk!, style: const TextStyle(color: AppColors.green)),
               ],
               const SizedBox(height: 16),

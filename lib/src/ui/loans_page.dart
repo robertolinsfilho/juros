@@ -130,7 +130,7 @@ class _LoansPageState extends State<LoansPage> {
           ],
           onChanged: (value) => setState(() => type = value ?? 'todos'),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (items.isEmpty)
           const Panel(child: EmptyHint(icon: Icons.receipt_long, title: 'Nenhum empréstimo', body: 'Crie o primeiro contrato para gerar as parcelas.'))
         else
@@ -260,7 +260,7 @@ class _LoanDetail extends StatelessWidget {
           ),
           MetricCard(label: 'STATUS', value: loan.displayStatus, caption: loan.notes.isEmpty ? 'sem observação' : loan.notes),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Panel(
           padding: EdgeInsets.zero,
           child: Column(
