@@ -255,6 +255,26 @@ def main():
     empty["email"] = ""
     masked, message, status = auth.start_password_change(codes, empty, "senha123", "nova1234", send, now=moment + 20)
     assert status == 400 and "e-mail" in message
+
+    codes.execute(
+        """
+        CREATE TABLE sessions (
+          token TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        )
+        """
+    )
+    codes.executemany(
+        "INSERT INTO sessions(token, user_id, expires_at) VALUES (?, ?, ?)",
+        [("atual", 4, moment + 1000), ("outro", 4, moment + 1000), ("alheio", 8, moment + 1000)],
+    )
+    auth.end_other_sessions(codes, 4, "atual")
+    left = [row["token"] for row in codes.execute("SELECT token FROM sessions ORDER BY token")]
+    assert left == ["alheio", "atual"]
+    auth.end_other_sessions(codes, 8, "")
+    left = [row["token"] for row in codes.execute("SELECT token FROM sessions ORDER BY token")]
+    assert left == ["atual"]
     print("ok")
 
 

@@ -168,6 +168,17 @@ def take_password_code(conn, user_id, code, password, now=None):
     return True, ""
 
 
+def end_other_sessions(conn, user_id, keep_token=""):
+    """Encerra as outras entradas desta conta. A sessão atual continua."""
+    if keep_token:
+        conn.execute(
+            "DELETE FROM sessions WHERE user_id = ? AND token != ?",
+            (user_id, keep_token),
+        )
+    else:
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+
+
 def start_password_change(conn, row, current, password, send, now=None):
     """Confere a senha atual e manda o código. Não devolve o código."""
     email = str(row["email"] or "").strip().lower()
@@ -1453,8 +1464,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
         salt, digest = hash_password(password)
         conn.execute("UPDATE users SET salt = ?, password_hash = ? WHERE id = ?", (salt, digest, user_id))
-        if actor["id"] != user_id:
-            conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        keep = ""
+        if actor["id"] == user_id:
+            keep = self.headers.get("Authorization", "")[7:].strip()
+        end_other_sessions(conn, user_id, keep)
         conn.commit()
         self._send(200, {"ok": True})
 
