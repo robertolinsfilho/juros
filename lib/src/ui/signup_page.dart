@@ -6,10 +6,9 @@ import 'brand.dart';
 import 'widgets.dart';
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key, required this.auth, required this.onSuccess, this.onBack, this.onLogin});
+  const SignupPage({super.key, required this.auth, this.onBack, this.onLogin});
 
   final AuthApi auth;
-  final void Function(SessionUser user, String token) onSuccess;
   final VoidCallback? onBack;
   final VoidCallback? onLogin;
 
@@ -65,9 +64,21 @@ class _SignupPageState extends State<SignupPage> {
       error = null;
     });
     try {
-      final result = await widget.auth.signup(name: name.text, username: login, email: mail, password: password.text);
+      await widget.auth.signup(name: name.text, username: login, email: mail, password: password.text);
       if (!mounted) return;
-      widget.onSuccess(result.user, result.token);
+      await showEmailPendingDialog(
+        context,
+        email: mail,
+        onResend: () async {
+          try {
+            await widget.auth.resendSignup(username: login, password: password.text);
+            return null;
+          } on AuthException catch (caught) {
+            return caught.message;
+          }
+        },
+      );
+      if (mounted) widget.onLogin?.call();
     } on AuthException catch (caught) {
       if (mounted) setState(() => error = caught.message);
     } finally {
@@ -111,7 +122,7 @@ class _SignupPageState extends State<SignupPage> {
                         Text('Criar conta grátis', style: Theme.of(context).textTheme.headlineSmall),
                         const SizedBox(height: 4),
                         const Text(
-                          'A conta entra no teste de 3 dias. Depois aparece o aviso para assinar.',
+                          'Depois de criar, você confirma o e-mail para liberar a conta. O teste de 3 dias começa quando você entrar.',
                           style: TextStyle(color: AppColors.muted),
                         ),
                         const SizedBox(height: 16),

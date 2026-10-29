@@ -41,7 +41,25 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       widget.onSuccess(result.user, result.token);
     } on AuthException catch (caught) {
-      if (mounted) setState(() => error = caught.message);
+      if (!mounted) return;
+      if (caught.pending) {
+        final login = username.text.trim();
+        final secret = password.text;
+        await showEmailPendingDialog(
+          context,
+          email: caught.email.isEmpty ? 'o e-mail cadastrado' : caught.email,
+          onResend: () async {
+            try {
+              await widget.auth.resendSignup(username: login, password: secret);
+              return null;
+            } on AuthException catch (again) {
+              return again.message;
+            }
+          },
+        );
+      } else {
+        setState(() => error = caught.message);
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }

@@ -9,50 +9,23 @@ import 'package:juros/src/theme.dart';
 import 'package:juros/src/ui/signup_page.dart';
 
 void main() {
-  testWidgets('formulário cria a conta e entra com o teste de 3 dias', (tester) async {
+  testWidgets('formulário cria a conta e pede a confirmação do e-mail', (tester) async {
     tester.view.physicalSize = const Size(420, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    SessionUser? created;
     final api = AuthApi(
       client: MockClient((request) async {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['username'], 'maria');
         expect(body['email'], 'maria@example.com');
         expect(request.url.path, endsWith('/api/signup'));
-        return http.Response(
-          jsonEncode({
-            'token': 'tok',
-            'user': {
-              'id': 9,
-              'username': 'maria',
-              'name': 'Maria',
-              'role': 'comum',
-              'active': true,
-              'access': {
-                'status': 'teste',
-                'days_left': 3,
-                'trial_ends_at': 1,
-                'paid_until': 0,
-                'plan': '',
-                'blocked': false,
-              },
-            },
-          }),
-          200,
-        );
+        return http.Response(jsonEncode({'pending': true, 'email': 'm***@example.com'}), 200);
       }),
     );
     await tester.pumpWidget(
       MaterialApp(
         theme: buildTheme(),
-        home: SignupPage(
-          auth: api,
-          onSuccess: (user, token) {
-            created = user;
-            expect(token, 'tok');
-          },
-        ),
+        home: SignupPage(auth: api),
       ),
     );
     await tester.enterText(find.widgetWithText(TextField, 'Seu nome'), 'Maria');
@@ -64,9 +37,10 @@ void main() {
     await tester.ensureVisible(button);
     await tester.pumpAndSettle();
     await tester.tap(button);
-    await tester.pump();
-    expect(created?.access.trial, isTrue);
-    expect(created?.access.daysLeft, 3);
+    await tester.pumpAndSettle();
+    expect(find.text('Confirme seu e-mail'), findsOneWidget);
+    expect(find.textContaining('maria@example.com'), findsWidgets);
+    expect(find.text('Liberar minha conta'), findsNothing);
   });
 
   testWidgets('senhas diferentes não criam a conta', (tester) async {
@@ -81,7 +55,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildTheme(),
-        home: SignupPage(auth: api, onSuccess: (_, _) {}),
+        home: SignupPage(auth: api),
       ),
     );
     await tester.enterText(find.widgetWithText(TextField, 'Seu nome'), 'Maria');

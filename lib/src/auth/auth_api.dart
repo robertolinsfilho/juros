@@ -93,9 +93,11 @@ class SessionUser {
 }
 
 class AuthException implements Exception {
-  AuthException(this.message);
+  AuthException(this.message, {this.pending = false, this.email = ''});
 
   final String message;
+  final bool pending;
+  final String email;
 
   @override
   String toString() => message;
@@ -117,22 +119,25 @@ class AuthApi {
     );
   }
 
-  Future<({SessionUser user, String token})> signup({
+  Future<void> signup({
     required String name,
     required String username,
     required String email,
     required String password,
   }) async {
-    final json = await _send('POST', '/api/signup', body: {
+    await _send('POST', '/api/signup', body: {
       'name': name.trim(),
       'username': username.trim(),
       'email': email.trim(),
       'password': password,
     });
-    return (
-      user: SessionUser.fromJson(json['user'] as Map<String, dynamic>),
-      token: json['token'] as String,
-    );
+  }
+
+  Future<void> resendSignup({required String username, required String password}) async {
+    await _send('POST', '/api/signup/resend', body: {
+      'username': username.trim(),
+      'password': password,
+    });
   }
 
   Future<SessionUser> me(String token) async {
@@ -314,7 +319,11 @@ class AuthApi {
       if (decoded is Map<String, dynamic>) json = decoded;
     }
     if (response.statusCode >= 400) {
-      throw AuthException(json['error'] as String? ?? 'Não foi possível concluir.');
+      throw AuthException(
+        json['error'] as String? ?? 'Não foi possível concluir.',
+        pending: json['pending'] == true,
+        email: json['email'] as String? ?? '',
+      );
     }
     return json;
   }

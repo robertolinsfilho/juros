@@ -275,6 +275,41 @@ def main():
     auth.end_other_sessions(codes, 8, "")
     left = [row["token"] for row in codes.execute("SELECT token FROM sessions ORDER BY token")]
     assert left == ["atual"]
+
+    box = sqlite3.connect(":memory:")
+    box.row_factory = sqlite3.Row
+    box.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email_confirmed INTEGER NOT NULL DEFAULT 0)")
+    box.execute(
+        """
+        CREATE TABLE email_confirmations (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          token_hash TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+        """
+    )
+    box.execute("INSERT INTO users(id, name) VALUES (3, ?)", ("<script>Maria",))
+    moment = 1_700_000_000
+    token = auth.issue_email_confirmation(box, 3, moment)
+    assert token and auth.email_token_hash(token) != token
+    plain, html_body = auth.confirmation_mail("<script>Maria", "https://acertaifinancas.com.br/api/confirm-email?token=abc")
+    assert "&lt;script&gt;Maria" in html_body
+    assert "<script>" not in html_body
+    assert "logo.png" in html_body
+    assert "Liberar minha conta" in html_body
+    assert "<script>Maria" in plain
+    assert "não vale mais" in auth.confirmation_page(False)
+    assert auth.take_email_confirmation(box, "errado", moment) is None
+    opened = auth.take_email_confirmation(box, token, moment)
+    assert opened["name"] == "<script>Maria"
+    assert box.execute("SELECT email_confirmed FROM users WHERE id = 3").fetchone()["email_confirmed"] == 1
+    assert auth.take_email_confirmation(box, token, moment) is None
+    assert "&lt;script&gt;Maria" in auth.confirmation_page(True, opened["name"])
+    for _ in range(5):
+        assert auth.issue_email_confirmation(box, 3, moment + 10)
+    assert auth.issue_email_confirmation(box, 3, moment + 10) is None
     print("ok")
 
 

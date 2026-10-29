@@ -3,6 +3,7 @@
 
 import hashlib
 import hmac
+import html
 import json
 import os
 import re
@@ -48,6 +49,7 @@ PLANS = {
 PUBLIC_URL = os.environ.get("JUROS_PUBLIC_URL", "https://acertaifinancas.com.br").rstrip("/")
 MAIL_FROM = os.environ.get("MAIL_FROM", "Acertaí Finanças <noreply@acertaifinancas.com.br>")
 PASSWORD_CODE_TTL = 10 * 60
+CONFIRM_TTL = 24 * 60 * 60
 MP_API = "https://api.mercadopago.com"
 TRIAL_DAYS = 3
 # Configurações de cada pessoa que acompanham o login em qualquer aparelho.
@@ -89,13 +91,15 @@ def mask_email(email):
     return f"{local[0]}***@{domain}"
 
 
-def send_mail(recipient, subject, body):
+def send_mail(recipient, subject, body, html_body=None):
     """Envia pelo Postfix local. O código não entra no log."""
     message = EmailMessage()
     message["From"] = MAIL_FROM
     message["To"] = recipient
     message["Subject"] = subject
     message.set_content(body)
+    if html_body:
+        message.add_alternative(html_body, subtype="html")
     try:
         with smtplib.SMTP("127.0.0.1", 25, timeout=15) as smtp:
             smtp.send_message(message)
@@ -166,6 +170,175 @@ def take_password_code(conn, user_id, code, password, now=None):
     conn.execute("DELETE FROM password_codes WHERE user_id = ?", (user_id,))
     conn.commit()
     return True, ""
+
+
+def email_token_hash(token):
+    return hashlib.sha256(str(token).encode()).hexdigest()
+
+
+def issue_email_confirmation(conn, user_id, now=None):
+    """Gera o link de confirmação. Um pedido novo invalida o anterior."""
+    now = int(time.time() if now is None else now)
+    hour = conn.execute(
+        "SELECT COUNT(*) AS n FROM email_confirmations WHERE user_id = ? AND created_at > ?",
+        (user_id, now - 3600),
+    ).fetchone()["n"]
+    if hour >= 5:
+        return None
+    token = secrets.token_urlsafe(32)
+    conn.execute(
+        "UPDATE email_confirmations SET expires_at = ? WHERE user_id = ? AND expires_at > ?",
+        (now, user_id, now),
+    )
+    conn.execute(
+        """
+        INSERT INTO email_confirmations(user_id, token_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, email_token_hash(token), now + CONFIRM_TTL, now),
+    )
+    return token
+
+
+def take_email_confirmation(conn, token, now=None):
+    """Libera a conta se o link ainda vale. O mesmo link não funciona de novo."""
+    now = int(time.time() if now is None else now)
+    raw = str(token or "")
+    if not raw or len(raw) > 200:
+        return None
+    row = conn.execute(
+        """
+        SELECT u.id, u.name
+        FROM email_confirmations c
+        JOIN users u ON u.id = c.user_id
+        WHERE c.token_hash = ? AND c.expires_at >= ?
+        """,
+        (email_token_hash(raw), now),
+    ).fetchone()
+    if row is None:
+        return None
+    conn.execute("UPDATE users SET email_confirmed = 1 WHERE id = ?", (row["id"],))
+    conn.execute("DELETE FROM email_confirmations WHERE user_id = ?", (row["id"],))
+    conn.commit()
+    return row
+
+
+def _first_name(name):
+    parts = str(name or "").split()
+    return parts[0] if parts else "olá"
+
+
+def _mail_document(title, preheader, inner):
+    logo = html.escape(f"{PUBLIC_URL}/logo.png", quote=True)
+    site = html.escape(PUBLIC_URL, quote=True)
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#e7eef3;">
+  <div style="display:none;max-height:0;overflow:hidden;">{html.escape(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#e7eef3;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td align="center" bgcolor="#060E18" style="padding:32px 24px;">
+              <img src="{logo}" width="180" alt="Acertaí Finanças" style="display:block;width:180px;max-width:70%;height:auto;border:0;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 16px;font-family:Arial,Helvetica,sans-serif;color:#12202b;">
+              {inner}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 32px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#5d6d7c;">
+              Acertaí Finanças<br>
+              <a href="{site}" style="color:#047a6e;text-decoration:none;">acertaifinancas.com.br</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def confirmation_mail(name, link):
+    safe_link = html.escape(link, quote=True)
+    who = html.escape(_first_name(name), quote=True)
+    button = (
+        '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0;">'
+        '<tr><td bgcolor="#45CF6F" style="border-radius:8px;">'
+        f'<a href="{safe_link}" style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;'
+        'font-size:16px;font-weight:700;color:#04230F;text-decoration:none;">Liberar minha conta</a>'
+        "</td></tr></table>"
+    )
+    inner = (
+        '<h1 style="margin:0 0 16px;font-size:24px;line-height:32px;font-weight:700;">Confirme seu e-mail</h1>'
+        f'<p style="margin:0 0 16px;font-size:16px;line-height:24px;">Olá, {who}.</p>'
+        '<p style="margin:0 0 16px;font-size:16px;line-height:24px;">Sua conta na Acertaí Finanças foi criada e ainda não está liberada. '
+        "Clique no botão para confirmar que este e-mail é seu. O teste de 3 dias começa quando você entrar.</p>"
+        f"{button}"
+        '<p style="margin:0 0 16px;font-size:14px;line-height:22px;color:#5d6d7c;">Se o botão não abrir, copie e cole este endereço no navegador:<br>'
+        f'<a href="{safe_link}" style="color:#047a6e;word-break:break-all;">{safe_link}</a></p>'
+        '<p style="margin:0;font-size:14px;line-height:22px;color:#5d6d7c;">O link vale por 24 horas e só funciona uma vez. '
+        "Se você não criou a conta, ignore este e-mail.</p>"
+    )
+    plain = (
+        f"Olá, {_first_name(name)}.\n\n"
+        "Sua conta na Acertaí Finanças foi criada e ainda não está liberada.\n"
+        "Abra o link abaixo para confirmar o e-mail. O teste de 3 dias começa quando você entrar.\n\n"
+        f"{link}\n\n"
+        "O link vale por 24 horas e só funciona uma vez.\n"
+        "Se você não criou a conta, ignore este e-mail.\n"
+    )
+    html_body = _mail_document(
+        "Confirme seu e-mail",
+        "Confirme seu e-mail para liberar a conta na Acertaí Finanças.",
+        inner,
+    )
+    return plain, html_body
+
+
+def confirmation_page(ok, name=""):
+    if ok:
+        who = html.escape(_first_name(name), quote=True)
+        title = "Conta liberada"
+        inner = (
+            f'<h1 style="margin:0 0 16px;font-size:24px;line-height:32px;">Conta liberada</h1>'
+            f'<p style="margin:0 0 16px;font-size:16px;line-height:24px;">Olá, {who}. Seu e-mail foi confirmado.</p>'
+            '<p style="margin:0 0 16px;font-size:16px;line-height:24px;">Agora é só entrar com o usuário e a senha que você escolheu. '
+            "O teste de 3 dias começa nessa entrada.</p>"
+        )
+        label = "Entrar na Acertaí"
+    else:
+        title = "Link inválido"
+        inner = (
+            '<h1 style="margin:0 0 16px;font-size:24px;line-height:32px;">Este link não vale mais</h1>'
+            '<p style="margin:0 0 16px;font-size:16px;line-height:24px;">Ele já foi usado ou passou de 24 horas. '
+            "Se a conta já foi liberada, entre normalmente. Se ainda não foi, peça um novo e-mail na tela de entrada.</p>"
+        )
+        label = "Ir para o site"
+    site = html.escape(PUBLIC_URL, quote=True)
+    button = (
+        '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 16px;">'
+        '<tr><td bgcolor="#45CF6F" style="border-radius:8px;">'
+        f'<a href="{site}" style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;'
+        f'font-size:16px;font-weight:700;color:#04230F;text-decoration:none;">{label}</a>'
+        "</td></tr></table>"
+    )
+    return _mail_document(title, title, inner + button)
+
+
+def send_confirmation_mail(recipient, name, token):
+    link = f"{PUBLIC_URL}/api/confirm-email?token={urllib.parse.quote(token)}"
+    plain, html_body = confirmation_mail(name, link)
+    send_mail(recipient, "Confirme seu e-mail para liberar a conta", plain, html_body)
 
 
 def end_other_sessions(conn, user_id, keep_token=""):
@@ -800,6 +973,13 @@ def ensure_schema(conn):
           attempts INTEGER NOT NULL DEFAULT 0,
           created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS email_confirmations (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          token_hash TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        );
         """
     )
     upgraded = False
@@ -826,6 +1006,9 @@ def ensure_schema(conn):
         conn.commit()
     if "email" not in columns:
         conn.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    if "email_confirmed" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN email_confirmed INTEGER NOT NULL DEFAULT 1")
         conn.commit()
     count = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
     if count:
@@ -988,6 +1171,12 @@ class Handler(BaseHTTPRequestHandler):
             if method == "POST" and path == "/api/signup":
                 self._signup(conn, data)
                 return
+            if method == "POST" and path == "/api/signup/resend":
+                self._resend_confirmation(conn, data)
+                return
+            if method == "GET" and path == "/api/confirm-email":
+                self._confirm_email(conn, (query.get("token") or [""])[0])
+                return
             actor = current_user(conn, self.headers.get("Authorization"))
             if actor is None:
                 self._send(401, {"error": "Entre novamente."})
@@ -1082,6 +1271,22 @@ class Handler(BaseHTTPRequestHandler):
         if not row["active"]:
             self._send(403, {"error": "Este usuário está desativado."})
             return
+        if not row["email_confirmed"]:
+            self._send(
+                403,
+                {
+                    "error": "Confirme o e-mail para liberar a conta. Olhe a caixa de entrada e o spam.",
+                    "pending": True,
+                    "email": mask_email(row["email"]),
+                },
+            )
+            return
+        if not int(row["trial_ends_at"] or 0) and row["role"] != "admin":
+            conn.execute(
+                "UPDATE users SET trial_ends_at = ? WHERE id = ?",
+                (int(time.time()) + TRIAL_DAYS * DAY, row["id"]),
+            )
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
         token = secrets.token_urlsafe(32)
         conn.execute(
             "INSERT INTO sessions(token, user_id, expires_at) VALUES (?, ?, ?)",
@@ -1091,7 +1296,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"token": token, "user": public_user(row)})
 
     def _signup(self, conn, data):
-        """Conta nova, sempre comum, com 3 dias grátis e já entra no sistema."""
+        """Conta nova fica parada até a pessoa confirmar o e-mail."""
         recent = conn.execute(
             "SELECT COUNT(*) AS n FROM users WHERE created_at > ?",
             (int(time.time()) - 3600,),
@@ -1124,25 +1329,58 @@ class Handler(BaseHTTPRequestHandler):
         try:
             cur = conn.execute(
                 """
-                INSERT INTO users(username, name, email, role, salt, password_hash, active, created_at, trial_ends_at)
-                VALUES (?, ?, ?, 'comum', ?, ?, 1, ?, ?)
+                INSERT INTO users(
+                  username, name, email, role, salt, password_hash, active, created_at, trial_ends_at, email_confirmed
+                ) VALUES (?, ?, ?, 'comum', ?, ?, 1, ?, ?, 0)
                 """,
-                (username, name, email, salt, digest, now, now + TRIAL_DAYS * DAY),
+                (username, name, email, salt, digest, now, 0),
             )
         except sqlite3.IntegrityError:
             self._send(409, {"error": "Já existe um usuário com esse login."})
             return
-        token = secrets.token_urlsafe(32)
-        conn.execute(
-            "INSERT INTO sessions(token, user_id, expires_at) VALUES (?, ?, ?)",
-            (token, cur.lastrowid, now + SESSION_SECONDS),
-        )
+        token = issue_email_confirmation(conn, cur.lastrowid, now)
+        if token is None:
+            conn.rollback()
+            self._send(429, {"error": "Muitos e-mails pedidos. Espere um pouco e tente de novo."})
+            return
+        try:
+            send_confirmation_mail(email, name, token)
+        except MailError:
+            conn.rollback()
+            self._send(502, {"error": "Não foi possível enviar o e-mail. Tente de novo."})
+            return
         conn.commit()
-        row = conn.execute(
-            "SELECT id, username, name, email, role, active, created_at, trial_ends_at, paid_until, plan FROM users WHERE id = ?",
-            (cur.lastrowid,),
-        ).fetchone()
-        self._send(200, {"token": token, "user": public_user(row)})
+        self._send(200, {"pending": True, "email": mask_email(email)})
+
+    def _resend_confirmation(self, conn, data):
+        username = str(data.get("username", "")).strip().lower()
+        password = str(data.get("password", ""))
+        row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if row is None or not password_ok(password, row["salt"], row["password_hash"]):
+            self._send(401, {"error": "Usuário ou senha incorretos."})
+            return
+        if row["email_confirmed"]:
+            self._send(400, {"error": "Esta conta já está liberada. Entre normalmente."})
+            return
+        token = issue_email_confirmation(conn, row["id"])
+        if token is None:
+            self._send(429, {"error": "Muitos e-mails pedidos. Espere um pouco e tente de novo."})
+            return
+        try:
+            send_confirmation_mail(row["email"], row["name"], token)
+        except MailError:
+            conn.rollback()
+            self._send(502, {"error": "Não foi possível enviar o e-mail. Tente de novo."})
+            return
+        conn.commit()
+        self._send(200, {"sent": True, "email": mask_email(row["email"])})
+
+    def _confirm_email(self, conn, token):
+        row = take_email_confirmation(conn, token)
+        if row is None:
+            self._send_html(400, confirmation_page(False))
+            return
+        self._send_html(200, confirmation_page(True, row["name"]))
 
     def _require_admin(self, actor):
         if actor["role"] != "admin":
@@ -1565,6 +1803,17 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_html(self, code, page):
+        body = page.encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)
 

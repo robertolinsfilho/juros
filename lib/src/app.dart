@@ -194,7 +194,6 @@ class _JurosAppState extends State<JurosApp> {
               ? (showSignup
                   ? SignupPage(
                       auth: auth,
-                      onSuccess: enter,
                       onBack: () => setState(() => showSignup = false),
                       onLogin: () => setState(() {
                         showSignup = false;

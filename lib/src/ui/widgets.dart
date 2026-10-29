@@ -250,6 +250,61 @@ class StatusPill extends StatelessWidget {
   }
 }
 
+Future<void> showEmailPendingDialog(
+  BuildContext context, {
+  required String email,
+  Future<String?> Function()? onResend,
+}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      var sending = false;
+      String? note;
+      return StatefulBuilder(
+        builder: (context, setLocal) {
+          return AlertDialog(
+            title: const Text('Confirme seu e-mail'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Enviamos um link para $email.'),
+                const SizedBox(height: Space.compact),
+                const Text(
+                  'A conta só é liberada depois que você abrir esse e-mail e clicar em Liberar minha conta. Sem esse clique, o login não entra. O link vale 24 horas. Se não aparecer na caixa de entrada, olhe o spam. O teste de 3 dias começa quando você entrar.',
+                ),
+                if (note != null) ...[
+                  const SizedBox(height: Space.compact),
+                  Text(note!, style: const TextStyle(color: AppColors.muted)),
+                ],
+              ],
+            ),
+            actions: [
+              if (onResend != null)
+                TextButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          setLocal(() => sending = true);
+                          final error = await onResend();
+                          if (!context.mounted) return;
+                          setLocal(() {
+                            sending = false;
+                            note = error ?? 'Enviamos o e-mail de novo.';
+                          });
+                        },
+                  child: Text(sending ? 'Enviando...' : 'Reenviar e-mail'),
+                ),
+              FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Entendi')),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
 Future<bool> confirmAction(BuildContext context, String title, String body) async {
   final result = await showDialog<bool>(
     context: context,
