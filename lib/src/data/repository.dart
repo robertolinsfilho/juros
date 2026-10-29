@@ -349,6 +349,14 @@ class Repo {
         value TEXT NOT NULL
       )
     ''');
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS reminders (
+        installment_id INTEGER NOT NULL,
+        due_date TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        PRIMARY KEY (installment_id, due_date)
+      )
+    ''');
     db.execute(
       'CREATE INDEX IF NOT EXISTS idx_installments_loan ON installments(loan_id)',
     );
@@ -1036,6 +1044,45 @@ class Repo {
   }
 
   List<InstallmentRecord> dueOn(DateTime day) => _dueBetween(isoDate(day), isoDate(day));
+
+  /// Quantos dias antes do vencimento o aviso entra na fila. Zero avisa só no dia.
+  int get reminderDays {
+    final value = int.tryParse(setting('aviso_dias', '1')) ?? 1;
+    if (value < 0) return 0;
+    if (value > 7) return 7;
+    return value;
+  }
+
+  void setReminderDays(int days) {
+    final bounded = days < 0 ? 0 : (days > 7 ? 7 : days);
+    setSetting('aviso_dias', '$bounded');
+  }
+
+  /// Parcelas em aberto que vencem até o prazo do aviso e ainda não foram avisadas.
+  List<InstallmentRecord> dueReminders(DateTime today) {
+    final start = dateOnly(today);
+    final end = start.add(Duration(days: reminderDays));
+    final pending = _dueBetween(isoDate(start), isoDate(end));
+    if (pending.isEmpty) return const [];
+    final sent = {
+      for (final row in db.select('SELECT installment_id, due_date FROM reminders'))
+        '${row['installment_id']}|${row['due_date']}',
+    };
+    return [
+      for (final item in pending)
+        if (!sent.contains('${item.id}|${item.dueDate}')) item,
+    ];
+  }
+
+  void markReminderSent(InstallmentRecord item, [DateTime? when]) {
+    db.execute(
+      '''
+      INSERT INTO reminders(installment_id, due_date, sent_at) VALUES(?, ?, ?)
+      ON CONFLICT(installment_id, due_date) DO UPDATE SET sent_at = excluded.sent_at
+      ''',
+      [item.id, item.dueDate, isoDate(when ?? DateTime.now())],
+    );
+  }
 
   ({int expected, int received, int receivedToday, int lentToday}) monthPulse(DateTime day) {
     final start = isoDate(DateTime(day.year, day.month, 1));

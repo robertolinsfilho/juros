@@ -50,11 +50,30 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (!opened && mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
   }
 
+  Future<void> remind(InstallmentRecord item) async {
+    if (item.clientPhone.trim().isEmpty) {
+      showError(context, '${item.clientName} está sem telefone.');
+      return;
+    }
+    final opened = await openWhatsApp(
+      phone: item.clientPhone,
+      message: MessageBuilder(widget.repo).charge(item),
+    );
+    if (!opened) {
+      if (mounted) showError(context, 'Não foi possível abrir o WhatsApp.');
+      return;
+    }
+    widget.repo.markReminderSent(item);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final pulse = widget.repo.monthPulse(cursor);
     final counts = widget.repo.dueCountsInMonth(cursor);
     final due = widget.repo.dueOn(selected);
+    final reminders = widget.repo.dueReminders(DateTime.now());
+    final lead = widget.repo.reminderDays;
     final names = const ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     final first = DateTime(cursor.year, cursor.month, 1);
     final days = DateTime(cursor.year, cursor.month + 1, 0).day;
@@ -65,6 +84,16 @@ class _CollectionsPageState extends State<CollectionsPage> {
         PageHeader(
           title: 'Cobranças',
           subtitle: '${due.length} em aberto no dia escolhido',
+        ),
+        const SizedBox(height: 16),
+        _Reminders(
+          days: lead,
+          items: reminders,
+          onDays: (days) {
+            widget.repo.setReminderDays(days);
+            setState(() {});
+          },
+          onRemind: remind,
         ),
         const SizedBox(height: 16),
         metricGrid([
@@ -139,6 +168,63 @@ class _CollectionsPageState extends State<CollectionsPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _Reminders extends StatelessWidget {
+  const _Reminders({
+    required this.days,
+    required this.items,
+    required this.onDays,
+    required this.onRemind,
+  });
+
+  final int days;
+  final List<InstallmentRecord> items;
+  final ValueChanged<int> onDays;
+  final ValueChanged<InstallmentRecord> onRemind;
+
+  @override
+  Widget build(BuildContext context) {
+    final reach = days == 0 ? 'só no dia do vencimento' : 'no dia e até $days ${days == 1 ? 'dia' : 'dias'} antes';
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Avisos pelo WhatsApp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text(
+            'Quem tem cobrança chegando entra aqui, $reach. O aviso abre o WhatsApp com a mensagem pronta e não se repete.',
+            style: const TextStyle(color: AppColors.muted),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in const [(0, 'Só no dia'), (1, '1 dia antes'), (2, '2 dias antes'), (3, '3 dias antes')])
+                ChoiceChip(
+                  label: Text(option.$2),
+                  selected: days == option.$1,
+                  onSelected: (_) => onDays(option.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (items.isEmpty)
+            const Text('Nenhum aviso pendente.', style: TextStyle(color: AppColors.muted))
+          else
+            for (final item in items)
+              RecordTile(
+                title: item.clientName,
+                subtitle: '${item.number}/${item.count} · ${fmtDateIso(item.dueDate)} · ${fmtMoney(item.faceCents)}',
+                actions: [
+                  FilledButton(onPressed: () => onRemind(item), child: const Text('Avisar')),
+                ],
+              ),
+        ],
+      ),
     );
   }
 }
