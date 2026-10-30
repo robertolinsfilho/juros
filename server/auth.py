@@ -58,6 +58,8 @@ SETTING_KEY = re.compile(
 )
 SETTING_VALUE_MAX = 20_000
 SETTINGS_MAX = 200
+ACCOUNT_MAX = 1_500_000
+ACCOUNT_TABLES = ("clients", "loans", "installments", "cash_entries", "reminders")
 
 
 def connect():
@@ -906,6 +908,75 @@ def apply_approved_payment(conn, payment):
     return "applied"
 
 
+def _account_cell_ok(value):
+    if value is None or isinstance(value, bool):
+        return True
+    if isinstance(value, int):
+        return abs(value) < 10**15
+    if isinstance(value, float):
+        return abs(value) < 10**12
+    if isinstance(value, str):
+        return len(value) <= 4000
+    return False
+
+
+def account_payload_ok(payload):
+    """A cópia da conta só traz as tabelas do movimento e os ajustes."""
+    if not isinstance(payload, dict):
+        return False
+    if set(payload) - set(ACCOUNT_TABLES) - {"settings"}:
+        return False
+    for table in ACCOUNT_TABLES:
+        rows = payload.get(table, [])
+        if not isinstance(rows, list):
+            return False
+        for row in rows:
+            if not isinstance(row, dict) or len(row) > 40:
+                return False
+            for key, value in row.items():
+                if not isinstance(key, str) or len(key) > 64 or not _account_cell_ok(value):
+                    return False
+    settings = payload.get("settings", {})
+    if not isinstance(settings, dict) or len(settings) > 300:
+        return False
+    for key, value in settings.items():
+        if not isinstance(key, str) or len(key) > 80 or key == "session_token":
+            return False
+        if not isinstance(value, str) or len(value) > SETTING_VALUE_MAX:
+            return False
+    return True
+
+
+def store_account(conn, user_id, base, payload, now):
+    """Grava a cópia da conta se a revisão ainda é a que o aparelho viu."""
+    if not account_payload_ok(payload):
+        return "invalid", 0, 0, None
+    raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    if len(raw.encode()) > ACCOUNT_MAX:
+        return "too_big", 0, 0, None
+    row = conn.execute(
+        "SELECT revision, updated_at, payload FROM account_data WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        if base != 0:
+            return "conflict", 0, 0, None
+        conn.execute(
+            "INSERT INTO account_data(user_id, revision, updated_at, payload) VALUES (?, 1, ?, ?)",
+            (user_id, now, raw),
+        )
+        return "ok", 1, now, None
+    if int(row["revision"]) != base:
+        current = json.loads(row["payload"])
+        return "conflict", int(row["revision"]), int(row["updated_at"]), current
+    revision = int(row["revision"]) + 1
+    conn.execute(
+        "UPDATE account_data SET revision = ?, updated_at = ?, payload = ? WHERE user_id = ?",
+        (revision, now, raw, user_id),
+    )
+    return "ok", revision, now, None
+
+
 def ensure_schema(conn):
     conn.executescript(
         """
@@ -979,6 +1050,12 @@ def ensure_schema(conn):
           token_hash TEXT NOT NULL,
           expires_at INTEGER NOT NULL,
           created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS account_data (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id),
+          revision INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          payload TEXT NOT NULL
         );
         """
     )
@@ -1144,6 +1221,10 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         query = urllib.parse.parse_qs(parsed.query)
         length = int(self.headers.get("Content-Length", "0") or "0")
+        if length < 0 or length > ACCOUNT_MAX + 80_000:
+            self.close_connection = True
+            self._send(413, {"error": "Pedido grande demais."})
+            return
         raw = self.rfile.read(length) if length else b""
         data = {}
         if raw:
@@ -1210,6 +1291,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/settings" and method == "POST":
                 self._save_settings(conn, actor, data)
+                return
+            if path == "/api/account" and method == "GET":
+                self._get_account(conn, actor)
+                return
+            if path == "/api/account" and method == "POST":
+                self._save_account(conn, actor, data)
                 return
             if path == "/api/users" and method == "GET":
                 self._list_users(conn, actor)
@@ -1637,6 +1724,47 @@ class Handler(BaseHTTPRequestHandler):
                 )
         conn.commit()
         self._send(200, {"ok": True})
+
+    def _get_account(self, conn, actor):
+        row = conn.execute(
+            "SELECT revision, updated_at, payload FROM account_data WHERE user_id = ?",
+            (actor["id"],),
+        ).fetchone()
+        if row is None:
+            self._send(200, {"revision": 0, "updated_at": 0, "data": None})
+            return
+        try:
+            data = json.loads(row["payload"])
+        except json.JSONDecodeError:
+            data = None
+        self._send(200, {"revision": row["revision"], "updated_at": row["updated_at"], "data": data})
+
+    def _save_account(self, conn, actor, data):
+        payload = data.get("data")
+        base = data.get("base")
+        if isinstance(base, bool) or not isinstance(base, int):
+            self._send(400, {"error": "Pedido inválido."})
+            return
+        status, revision, updated, current = store_account(conn, actor["id"], base, payload, int(time.time()))
+        if status == "invalid":
+            self._send(400, {"error": "Pedido inválido."})
+            return
+        if status == "too_big":
+            self._send(413, {"error": "Os dados passaram do limite."})
+            return
+        if status == "conflict":
+            self._send(
+                409,
+                {
+                    "error": "Os dados mudaram em outro aparelho.",
+                    "revision": revision,
+                    "updated_at": updated,
+                    "data": current,
+                },
+            )
+            return
+        conn.commit()
+        self._send(200, {"revision": revision, "updated_at": updated})
 
     def _update_profile(self, conn, actor, data):
         name = str(data.get("name", "")).strip()

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'auth/account_sync.dart';
 import 'auth/auth_api.dart';
+import 'auth/session_store.dart';
 import 'auth/settings_sync.dart';
 import 'data/repository.dart';
 import 'theme.dart';
@@ -40,9 +42,10 @@ class JurosApp extends StatefulWidget {
   State<JurosApp> createState() => _JurosAppState();
 }
 
-class _JurosAppState extends State<JurosApp> {
+class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
   late final AuthApi auth = widget.auth ?? AuthApi();
   late final SettingsSync sync = SettingsSync(widget.repo, auth);
+  late final AccountSync account = AccountSync(widget.repo, auth);
   int section = openingSection();
   late double scale = widget.repo.fontScale;
   SessionUser? user;
@@ -55,18 +58,40 @@ class _JurosAppState extends State<JurosApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    account.onApplied = () {
+      if (mounted) setState(() => scale = widget.repo.fontScale);
+    };
     restore();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (token.isEmpty) return;
+    if (state == AppLifecycleState.resumed) {
+      account.flush();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      account.flush(pull: false);
+    }
+  }
+
   Future<void> restore() async {
-    final saved = widget.repo.setting('session_token');
+    final saved = readSession().isNotEmpty ? readSession() : widget.repo.setting('session_token');
     if (saved.isEmpty) {
       if (mounted) setState(() => checking = false);
       return;
     }
     try {
       final me = await auth.me(saved);
+      writeSession(saved);
       await sync.start(saved);
+      await account.start(saved);
       if (!mounted) return;
       setState(() {
         scale = widget.repo.fontScale;
@@ -75,6 +100,7 @@ class _JurosAppState extends State<JurosApp> {
         checking = false;
       });
     } catch (_) {
+      writeSession('');
       widget.repo.removeSetting('session_token');
       if (mounted) setState(() => checking = false);
     }
@@ -96,9 +122,12 @@ class _JurosAppState extends State<JurosApp> {
     );
   }
 
-  Future<void> enter(SessionUser next, String nextToken) async {    widget.repo.setSetting('session_token', nextToken);
+  Future<void> enter(SessionUser next, String nextToken) async {
+    widget.repo.setSetting('session_token', nextToken);
+    writeSession(nextToken);
     setState(() => checking = true);
     await sync.start(nextToken);
+    await account.start(nextToken);
     if (!mounted) return;
     setState(() {
       user = next;
@@ -110,8 +139,10 @@ class _JurosAppState extends State<JurosApp> {
   }
 
   Future<void> leave() async {
+    await account.stop();
     await sync.stop();
     await auth.logout(token);
+    writeSession('');
     widget.repo.removeSetting('session_token');
     if (!mounted) return;
     setState(() {

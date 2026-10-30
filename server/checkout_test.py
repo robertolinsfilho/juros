@@ -310,6 +310,32 @@ def main():
     for _ in range(5):
         assert auth.issue_email_confirmation(box, 3, moment + 10)
     assert auth.issue_email_confirmation(box, 3, moment + 10) is None
+
+    store = sqlite3.connect(":memory:")
+    store.row_factory = sqlite3.Row
+    store.execute(
+        """
+        CREATE TABLE account_data (
+          user_id INTEGER PRIMARY KEY,
+          revision INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          payload TEXT NOT NULL
+        )
+        """
+    )
+    payload = {"clients": [{"id": 1, "name": "Ana"}], "settings": {"creditor_name": "Casa"}}
+    status, revision, _, _ = auth.store_account(store, 1, 0, payload, 10)
+    assert status == "ok" and revision == 1
+    status, revision, _, current = auth.store_account(store, 1, 0, payload, 11)
+    assert status == "conflict" and revision == 1
+    assert current["clients"][0]["name"] == "Ana"
+    status, _, _, _ = auth.store_account(store, 1, 1, {"settings": {"session_token": "x"}}, 12)
+    assert status == "invalid"
+    status, revision, _, _ = auth.store_account(
+        store, 1, 1, {"clients": [], "settings": {"pix_key": "abc"}}, 12
+    )
+    assert status == "ok" and revision == 2
+    assert auth.account_payload_ok({"nope": []}) is False
     print("ok")
 
 

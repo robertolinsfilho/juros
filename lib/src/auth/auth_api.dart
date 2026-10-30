@@ -93,11 +93,12 @@ class SessionUser {
 }
 
 class AuthException implements Exception {
-  AuthException(this.message, {this.pending = false, this.email = ''});
+  AuthException(this.message, {this.pending = false, this.email = '', this.details = const {}});
 
   final String message;
   final bool pending;
   final String email;
+  final Map<String, dynamic> details;
 
   @override
   String toString() => message;
@@ -155,6 +156,28 @@ class AuthApi {
   /// Valor nulo apaga o ajuste no servidor.
   Future<void> saveSettings(String token, Map<String, String?> changes) async {
     await _send('POST', '/api/settings', token: token, body: {'settings': changes});
+  }
+
+  /// Cópia da conta no servidor. Revisão 0 significa que ainda não há nada gravado.
+  Future<({int revision, Map<String, dynamic>? data})> account(String token) async {
+    final json = await _send('GET', '/api/account', token: token, timeout: const Duration(seconds: 40));
+    final data = json['data'];
+    return (
+      revision: (json['revision'] as num?)?.toInt() ?? 0,
+      data: data is Map<String, dynamic> ? data : null,
+    );
+  }
+
+  /// Grava a cópia se `base` ainda for a revisão que este aparelho viu.
+  Future<int> saveAccount(String token, int base, Map<String, dynamic> data) async {
+    final json = await _send(
+      'POST',
+      '/api/account',
+      token: token,
+      body: {'base': base, 'data': data},
+      timeout: const Duration(seconds: 40),
+    );
+    return (json['revision'] as num?)?.toInt() ?? 0;
   }
 
   /// Abre o checkout do Mercado Pago. `period` é `mes` ou `ano`.
@@ -299,6 +322,7 @@ class AuthApi {
     String path, {
     String? token,
     Map<String, dynamic>? body,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
@@ -309,20 +333,25 @@ class AuthApi {
       response = await switch (method) {
         'POST' => _client.post(uri, headers: headers, body: encoded),
         _ => _client.get(uri, headers: headers),
-      }.timeout(const Duration(seconds: 20));
+      }.timeout(timeout);
     } catch (_) {
       throw AuthException('Não foi possível falar com o servidor.');
     }
     Map<String, dynamic> json = {};
     if (response.body.isNotEmpty) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) json = decoded;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) json = decoded;
+      } catch (_) {
+        json = {};
+      }
     }
     if (response.statusCode >= 400) {
       throw AuthException(
         json['error'] as String? ?? 'Não foi possível concluir.',
         pending: json['pending'] == true,
         email: json['email'] as String? ?? '',
+        details: json,
       );
     }
     return json;

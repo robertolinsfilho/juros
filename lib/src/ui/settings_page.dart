@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../data/repository.dart';
 import '../theme.dart';
@@ -55,16 +54,8 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Os dados dos empréstimos ficam só neste navegador.'),
-          const SizedBox(height: 8),
-          SelectableText(widget.repo.dbPath),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: widget.repo.dbPath));
-              showError(context, 'Caminho copiado.');
-            },
-            child: const Text('Copiar caminho'),
+          const Text(
+            'Clientes, empréstimos, caixa e estas configurações ficam na conta, no servidor. O celular e o computador mostram a mesma coisa depois que você entra.',
           ),
         ],
       ),

@@ -273,6 +273,9 @@ class Repo {
   final CommonDatabase db;
   final String dbPath;
 
+  /// Apaga a cópia antiga do IndexedDB depois que o servidor já tem os dados.
+  Future<void> Function()? discardLegacy;
+
   void close() => db.close();
 
   void _ensure() {
@@ -463,6 +466,99 @@ class Repo {
       [key, value],
     );
     onSettingChanged?.call(key, value);
+  }
+
+  static const accountTables = ['clients', 'loans', 'installments', 'cash_entries', 'reminders'];
+
+  /// Cópia do movimento desta conta, sem o token de entrada.
+  Map<String, dynamic> accountSnapshot() {
+    return {
+      for (final table in accountTables) table: _tableRows(table),
+      'settings': {
+        for (final row in db.select('SELECT key, value FROM settings ORDER BY key'))
+          if (row['key'] != 'session_token') row['key'] as String: row['value'] as String,
+      },
+    };
+  }
+
+  bool get accountIsEmpty {
+    for (final table in accountTables) {
+      final count = db.select('SELECT COUNT(*) AS n FROM $table').first['n'] as int;
+      if (count > 0) return false;
+    }
+    final settings = accountSnapshot()['settings'] as Map;
+    return settings.isEmpty;
+  }
+
+  List<Map<String, Object?>> _tableRows(String table) {
+    final order = table == 'reminders' ? 'installment_id, due_date' : 'id';
+    final columns = [
+      for (final row in db.select('PRAGMA table_info($table)')) row['name'] as String,
+    ];
+    return [
+      for (final row in db.select('SELECT * FROM $table ORDER BY $order'))
+        {for (final column in columns) column: row[column]},
+    ];
+  }
+
+  /// Troca o movimento local pela cópia do servidor. O token de entrada fica.
+  void replaceAccount(Map<String, dynamic> data) {
+    final listener = onSettingChanged;
+    onSettingChanged = null;
+    db.execute('PRAGMA foreign_keys = OFF');
+    db.execute('BEGIN');
+    try {
+      for (final table in accountTables.reversed) {
+        db.execute('DELETE FROM $table');
+      }
+      db.execute("DELETE FROM settings WHERE key != 'session_token'");
+      for (final table in accountTables) {
+        final rows = data[table];
+        if (rows is! List) continue;
+        for (final raw in rows) {
+          if (raw is Map) _insertAccountRow(table, raw);
+        }
+      }
+      final settings = data['settings'];
+      if (settings is Map) {
+        settings.forEach((key, value) {
+          final name = key.toString();
+          if (name == 'session_token' || value == null) return;
+          db.execute('INSERT INTO settings(key, value) VALUES(?, ?)', [name, value.toString()]);
+        });
+      }
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    } finally {
+      db.execute('PRAGMA foreign_keys = ON');
+      onSettingChanged = listener;
+    }
+  }
+
+  void clearAccount() {
+    replaceAccount(const {
+      'clients': [],
+      'loans': [],
+      'installments': [],
+      'cash_entries': [],
+      'reminders': [],
+      'settings': {},
+    });
+  }
+
+  void _insertAccountRow(String table, Map raw) {
+    final known = {
+      for (final row in db.select('PRAGMA table_info($table)')) row['name'] as String,
+    };
+    final keys = [for (final key in raw.keys) key.toString()].where(known.contains).toList();
+    if (keys.isEmpty) return;
+    final marks = List.filled(keys.length, '?').join(',');
+    db.execute(
+      'INSERT INTO $table(${keys.join(',')}) VALUES($marks)',
+      [for (final key in keys) raw[key]],
+    );
   }
 
   double get fontScale => double.tryParse(setting('font_scale', '1')) ?? 1;

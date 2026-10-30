@@ -77,4 +77,33 @@ void main() {
     expect(repo.dueReminders(DateTime(2026, 10, 31)), isEmpty);
     expect(repo.dueReminders(DateTime(2026, 11, 2)), isEmpty);
   });
+
+  test('a cópia da conta volta o cliente e deixa o token nesta tela', () {
+    final repo = Repo(sqlite3.openInMemory(), ':memory:');
+    addTearDown(repo.close);
+    repo.setSetting('session_token', 'segredo');
+    repo.setSetting('creditor_name', 'Casa');
+    repo.saveClient(
+      name: 'Maria',
+      document: '',
+      phone: '86999999999',
+      zip: '',
+      address: '',
+      workAddress: '',
+    );
+    final snap = repo.accountSnapshot();
+    expect((snap['settings'] as Map).containsKey('session_token'), isFalse);
+    repo.saveClient(
+      name: 'Outro',
+      document: '',
+      phone: '86988888888',
+      zip: '',
+      address: '',
+      workAddress: '',
+    );
+    repo.replaceAccount(snap);
+    expect(repo.setting('session_token'), 'segredo');
+    expect(repo.setting('creditor_name'), 'Casa');
+    expect(repo.listClients().map((item) => item.name), ['Maria']);
+  });
 }
