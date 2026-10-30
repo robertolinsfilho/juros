@@ -27,7 +27,9 @@ Future<Repo> openRepo() async {
       legacy = null;
     }
   }
-  final repo = Repo(sqlite.openInMemory(), 'na conta');
+  final memory = InMemoryFileSystem();
+  sqlite.registerVirtualFileSystem(memory, makeDefault: true);
+  final repo = Repo(sqlite.open('/conta.db', vfs: memory.name), 'na conta');
   if (legacy != null) repo.replaceAccount(legacy);
   if (token.isNotEmpty) {
     writeSession(token);
