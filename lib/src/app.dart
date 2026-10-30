@@ -68,6 +68,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    account.close();
     super.dispose();
   }
 

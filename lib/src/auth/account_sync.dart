@@ -100,6 +100,13 @@ class AccountSync {
     } catch (_) {}
   }
 
+  /// Para o relógio sem apagar os dados. A tela foi fechada.
+  void close() {
+    _timer?.cancel();
+    _timer = null;
+    _token = '';
+  }
+
   /// Envia o que falta e tira o movimento desta tela, para a próxima pessoa não herdá-lo.
   Future<void> stop() async {
     _timer?.cancel();
