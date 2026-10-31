@@ -96,10 +96,15 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (MediaQuery.sizeOf(context).width >= 480) ...[
-                TextButton(onPressed: onLogin, child: const Text('Entrar')),
-                const SizedBox(width: 8),
-              ],
+              TextButton(
+                onPressed: onLogin,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Entrar'),
+              ),
+              const SizedBox(width: 8),
               FilledButton(
                 onPressed: onCreate,
                 style: FilledButton.styleFrom(
