@@ -98,6 +98,47 @@ void main() {
     expect(config.hasOverride('atrasado'), isFalse);
   });
 
+  test('cobrança inclui a explicação da mora quando o contrato pede', () {
+    final loanId = repo.createLoan(
+      LoanDraft(
+        clientId: clientId,
+        principalCents: 100000,
+        rateBps: 1000,
+        rateMode: RateMode.porParcela,
+        contractMode: ContractMode.amortizacao,
+        frequency: Frequency.mensal,
+        intervalDays: 0,
+        count: 1,
+        contractDate: DateTime(2026, 10, 27),
+        skipSaturday: false,
+        skipSunday: false,
+        skipHoliday: false,
+        lateMode: 'percentual_dia',
+        latePercentBps: 100,
+        lateDailyCents: 0,
+        lateFixedCents: 0,
+        lateExplain: true,
+        lateExplainText:
+            '*Se atrasar:* a cada dia de atraso, cada parcela em aberto soma 1% ao dia sobre o valor dela (mora).',
+        notes: '',
+      ),
+    );
+    final item = repo.installmentsOf(loanId).first;
+    final builder = MessageBuilder(repo);
+    final charge = builder.charge(item, today: DateTime(2026, 11, 20));
+    final situation = builder.status(loanId, today: DateTime(2026, 11, 1));
+    expect(charge, contains('soma 1% ao dia sobre o valor dela'));
+    expect(charge.trim().endsWith('(mora).'), isTrue);
+    expect(situation, contains('soma 1% ao dia sobre o valor dela'));
+    expect(situation.trim().endsWith('(mora).'), isTrue);
+    final without = builder.charge(
+      repo.installmentsOf(repo.createLoan(draft(clientId, ContractMode.amortizacao))).first,
+      today: DateTime(2026, 11, 20),
+    );
+    expect(without, isNot(contains('Se atrasar')));
+    expect(builder.status(repo.createLoan(draft(clientId, ContractMode.amortizacao))), isNot(contains('Se atrasar')));
+  });
+
   test('cobrança escolhe o modelo pela situação', () {
     final loanId = repo.createLoan(draft(clientId, ContractMode.amortizacao, count: 2));
     final item = repo.installmentsOf(loanId).first;

@@ -3,6 +3,7 @@
 import '../data/repository.dart';
 import '../domain/schedule.dart';
 import '../format.dart';
+import 'late_fee_fields.dart';
 import 'widgets.dart';
 
 Future<bool> showLoanEdit(BuildContext context, Repo repo, LoanRecord loan) async {
@@ -50,7 +51,19 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
   late final latePercent = TextEditingController(text: _percentText(base.latePercentBps));
   late final lateDaily = TextEditingController(text: _moneyText(base.lateDailyCents));
   late final lateFixed = TextEditingController(text: _moneyText(base.lateFixedCents));
+  late final lateExplainText = TextEditingController(
+    text: base.lateExplainText.isEmpty
+        ? defaultLateExplanation(
+            mode: base.lateMode,
+            percentBps: base.latePercentBps,
+            dailyCents: base.lateDailyCents,
+            fixedCents: base.lateFixedCents,
+          )
+        : base.lateExplainText,
+  );
   late final notes = TextEditingController(text: base.notes);
+  late bool lateExplain = base.lateMode == 'sem_mora' ? false : base.lateExplain || base.lateExplainText.isNotEmpty;
+  late bool lateExplainTouched = base.lateExplainText.isNotEmpty;
   late RateMode rateMode = base.rateMode;
   late Frequency frequency = base.frequency;
   late DateTime contractDate = base.contractDate;
@@ -76,6 +89,7 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
     latePercent.dispose();
     lateDaily.dispose();
     lateFixed.dispose();
+    lateExplainText.dispose();
     notes.dispose();
     super.dispose();
   }
@@ -104,6 +118,8 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
       latePercentBps: parsePercentBps(latePercent.text) ?? 0,
       lateDailyCents: parseMoney(lateDaily.text) ?? 0,
       lateFixedCents: parseMoney(lateFixed.text) ?? 0,
+      lateExplain: lateMode != 'sem_mora' && lateExplain,
+      lateExplainText: lateExplainText.text,
       notes: notes.text,
       skipWeekdays: skipWeekdays,
     );
@@ -137,6 +153,8 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
       latePercentBps: parsePercentBps(latePercent.text) ?? 0,
       lateDailyCents: parseMoney(lateDaily.text) ?? 0,
       lateFixedCents: parseMoney(lateFixed.text) ?? 0,
+      lateExplain: lateMode != 'sem_mora' && lateExplain,
+      lateExplainText: lateExplainText.text,
       notes: notes.text,
       skipWeekdays: skipWeekdays,
     );
@@ -154,6 +172,32 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
     }
     widget.repo.updateLoan(widget.loan.id, full, rebuild: true);
     Navigator.pop(context, true);
+  }
+
+  void changeLateMode(String next) {
+    setState(() {
+      lateMode = next;
+      if (next == 'percentual_dia' && (parsePercentBps(latePercent.text) ?? 0) == 0) {
+        latePercent.text = '1';
+      }
+      lateExplain = next != 'sem_mora';
+    });
+    refreshLateExplanation();
+  }
+
+  void refreshLateExplanation() {
+    if (lateExplainTouched) {
+      setState(() {});
+      return;
+    }
+    fillLateExplanation(
+      lateExplainText,
+      mode: lateMode,
+      percent: latePercent,
+      daily: lateDaily,
+      fixed: lateFixed,
+    );
+    setState(() {});
   }
 
   void toggleWeekday(int bit, bool selected) {
@@ -329,30 +373,18 @@ class _LoanEditDialogState extends State<_LoanEditDialog> {
                 ),
               ],
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: ValueKey('late-$lateMode'),
-                initialValue: lateMode,
-                decoration: const InputDecoration(labelText: 'Juros por atraso (mora)'),
-                items: const [
-                  DropdownMenuItem(value: 'sem_mora', child: Text('Sem mora')),
-                  DropdownMenuItem(value: 'percentual_dia', child: Text('% ao dia')),
-                  DropdownMenuItem(value: 'valor_fixo', child: Text('Valor fixo por dia')),
-                  DropdownMenuItem(value: 'taxa_unica_percentual', child: Text('Taxa única + % ao dia')),
-                ],
-                onChanged: (next) => setState(() => lateMode = next ?? lateMode),
+              LateFeeFields(
+                mode: lateMode,
+                onMode: changeLateMode,
+                percent: latePercent,
+                daily: lateDaily,
+                fixed: lateFixed,
+                explain: lateExplain,
+                onExplain: (next) => setState(() => lateExplain = next),
+                explainText: lateExplainText,
+                onExplainEdited: () => lateExplainTouched = true,
+                onValuesChanged: refreshLateExplanation,
               ),
-              if (lateMode == 'percentual_dia' || lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 16),
-                TextField(controller: latePercent, decoration: const InputDecoration(labelText: 'Percentual ao dia'), keyboardType: TextInputType.number),
-              ],
-              if (lateMode == 'valor_fixo') ...[
-                const SizedBox(height: 16),
-                TextField(controller: lateDaily, decoration: const InputDecoration(labelText: 'Valor por dia'), keyboardType: TextInputType.number),
-              ],
-              if (lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 16),
-                TextField(controller: lateFixed, decoration: const InputDecoration(labelText: 'Taxa única'), keyboardType: TextInputType.number),
-              ],
               const SizedBox(height: 16),
               TextField(
                 controller: notes,

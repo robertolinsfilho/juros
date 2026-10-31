@@ -28,6 +28,7 @@ const templateKinds = <TemplateKind>[
       'total_pagar',
       'primeiro_vencimento',
       'lista_parcelas',
+      'mora_explicacao',
       'assinatura',
     ],
     '📄 *EMPRÉSTIMO REGISTRADO*\n$_line\n\n'
@@ -39,7 +40,7 @@ const templateKinds = <TemplateKind>[
         '💰 Juros no total: *{{total_juros}}*\n'
         '🧾 Total a pagar: *{{total_pagar}}*\n'
         '📅 Primeiro vencimento: *{{primeiro_vencimento}}*\n\n'
-        '📋 *Suas parcelas*\n{{lista_parcelas}}\n\n{{assinatura}}',
+        '📋 *Suas parcelas*\n{{lista_parcelas}}\n\n{{mora_explicacao}}\n\n{{assinatura}}',
   ),
   TemplateKind(
     'registrado_juros',
@@ -54,6 +55,7 @@ const templateKinds = <TemplateKind>[
       'periodo_do',
       'valor_quitar',
       'lista_parcelas',
+      'mora_explicacao',
       'assinatura',
     ],
     '📄 *EMPRÉSTIMO REGISTRADO*\n$_line\n\n'
@@ -63,7 +65,7 @@ const templateKinds = <TemplateKind>[
         '💵 Capital emprestado: *{{valor_principal}}*\n'
         '💰 Juros: *{{juros_mensal}}* por {{periodo}}\n'
         '🏁 Para quitar: *{{valor_quitar}}*\n\n'
-        '📅 *Próximos vencimentos dos juros*\n{{lista_parcelas}}\n\n{{assinatura}}',
+        '📅 *Próximos vencimentos dos juros*\n{{lista_parcelas}}\n\n{{mora_explicacao}}\n\n{{assinatura}}',
   ),
   TemplateKind(
     'renegociado',
@@ -130,11 +132,11 @@ const templateKinds = <TemplateKind>[
   TemplateKind(
     'situacao',
     'Situação do Contrato',
-    ['cliente_nome', 'bloco_status', 'bloco_progresso', 'bloco_proximo', 'lista_parcelas_status', 'assinatura'],
+    ['cliente_nome', 'bloco_status', 'bloco_progresso', 'bloco_proximo', 'lista_parcelas_status', 'mora_explicacao', 'assinatura'],
     'Olá, *{{cliente_nome}}*!\n$_line\n\n'
         '📊 *SITUAÇÃO DO SEU CONTRATO*\n\n'
         '{{bloco_status}}\n{{bloco_progresso}}\n{{bloco_proximo}}\n\n'
-        '📋 *Parcelas*\n{{lista_parcelas_status}}\n\n{{assinatura}}',
+        '📋 *Parcelas*\n{{lista_parcelas_status}}\n\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'pre_vencimento',
@@ -153,6 +155,7 @@ const templateKinds = <TemplateKind>[
       'total_atrasado',
       'saldo_devedor',
       'total_quitacao',
+      'mora_explicacao',
       'assinatura',
     ],
     'Olá, *{{cliente_nome}}*! 👋\n$_line\n\n'
@@ -162,7 +165,7 @@ const templateKinds = <TemplateKind>[
         '📅 Vence em: *{{parcela_vencimento}}*\n\n'
         '{{progresso_bar}}\n\n'
         'Se já pagou, é só desconsiderar este aviso.\n\n'
-        '{{bloco_atrasos}}\n{{assinatura}}',
+        '{{bloco_atrasos}}\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'vencimento_hoje',
@@ -181,6 +184,7 @@ const templateKinds = <TemplateKind>[
       'total_atrasado',
       'saldo_devedor',
       'total_quitacao',
+      'mora_explicacao',
       'assinatura',
     ],
     'Olá, *{{cliente_nome}}*! 👋\n$_line\n\n'
@@ -190,7 +194,7 @@ const templateKinds = <TemplateKind>[
         '📅 Vencimento: *hoje ({{parcela_vencimento}})*\n\n'
         '{{progresso_bar}}\n\n'
         'Pagando hoje você mantém tudo em dia.\n\n'
-        '{{bloco_atrasos}}\n{{assinatura}}',
+        '{{bloco_atrasos}}\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'atrasado',
@@ -211,6 +215,7 @@ const templateKinds = <TemplateKind>[
       'total_atrasado',
       'saldo_devedor',
       'total_quitacao',
+      'mora_explicacao',
       'assinatura',
     ],
     'Olá, *{{cliente_nome}}*.\n$_line\n\n'
@@ -223,7 +228,7 @@ const templateKinds = <TemplateKind>[
         '💰 Total com mora: *{{total_com_mora}}*\n\n'
         '{{progresso_bar}}\n\n'
         'Vamos acertar? Quanto antes pagar, menos mora acumula.\n\n'
-        '{{bloco_atrasos}}\n{{assinatura}}',
+        '{{bloco_atrasos}}\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'consolidada',
@@ -236,6 +241,7 @@ const templateKinds = <TemplateKind>[
       'total_atrasado',
       'mora_texto',
       'total_regularizar',
+      'mora_explicacao',
       'assinatura',
     ],
     'Olá, *{{cliente_nome}}*.\n$_line\n\n'
@@ -243,7 +249,7 @@ const templateKinds = <TemplateKind>[
         '{{lista_contratos_atraso}}\n\n'
         '🧾 Total em atraso: *{{total_atrasado}}*\n{{mora_texto}}\n'
         '✅ Para regularizar tudo: *{{total_regularizar}}*\n\n'
-        'Me responda por aqui para combinarmos o pagamento.\n\n{{assinatura}}',
+        'Me responda por aqui para combinarmos o pagamento.\n\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'aberto',
@@ -260,6 +266,7 @@ const templateKinds = <TemplateKind>[
       'qtd_atrasadas',
       'total_juros_aberto',
       'total_quitacao',
+      'mora_explicacao',
       'assinatura',
     ],
     'Olá, *{{cliente_nome}}*! 👋\n$_line\n\n'
@@ -270,7 +277,7 @@ const templateKinds = <TemplateKind>[
         '💰 Capital em aberto: *{{capital_aberto}}*\n'
         '🧾 Juros em aberto: *{{total_juros_aberto}}*\n'
         '✅ Para quitar tudo: *{{total_quitacao}}*\n\n'
-        'Obrigado por manter os pagamentos em dia.\n{{assinatura}}',
+        'Obrigado por manter os pagamentos em dia.\n{{assinatura}}\n\n{{mora_explicacao}}',
   ),
   TemplateKind(
     'pagamento',
@@ -484,6 +491,8 @@ Map<String, String> sampleVariables(String signature) {
     'dias_atraso': '5',
     'mora_valor': 'R\$ 25,00',
     'mora_texto': '💸 Mora: R\$ 25,00',
+    'mora_explicacao':
+        '*Se atrasar:* a cada dia de atraso, cada parcela em aberto soma 1% ao dia sobre o valor dela (mora).',
     'total_com_mora': 'R\$ 525,00',
     'lista_contratos_atraso': '📋 *Contrato nº 128*\n• 15/03/2026 · R\$ 250,00 (5 dias)\n📋 *Contrato nº 131*\n• 10/03/2026 · R\$ 300,00 (10 dias)',
     'total_regularizar': 'R\$ 575,00',

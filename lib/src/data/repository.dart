@@ -54,6 +54,8 @@ class LoanRecord {
     required this.lateDailyCents,
     required this.lateFixedCents,
     required this.notes,
+    this.lateExplain = false,
+    this.lateExplainText = '',
     required this.status,
     required this.overdueCount,
     required this.nextDue,
@@ -80,6 +82,8 @@ class LoanRecord {
   final int lateDailyCents;
   final int lateFixedCents;
   final String notes;
+  final bool lateExplain;
+  final String lateExplainText;
   final String status;
   final int overdueCount;
   final String? nextDue;
@@ -373,6 +377,8 @@ class Repo {
     _addColumn('loans', 'fixed_installment', 'INTEGER NOT NULL DEFAULT 0');
     _addColumn('loans', 'charge_frequency', "TEXT NOT NULL DEFAULT ''");
     _addColumn('loans', 'pix_key', "TEXT NOT NULL DEFAULT ''");
+    _addColumn('loans', 'late_explain', 'INTEGER NOT NULL DEFAULT 0');
+    _addColumn('loans', 'late_explain_text', "TEXT NOT NULL DEFAULT ''");
   }
 
   void _addColumn(String table, String name, String definition) {
@@ -740,8 +746,9 @@ class Repo {
           client_id, principal_cents, rate_bps, rate_mode, contract_mode, frequency,
           interval_days, installment_count, contract_date, skip_saturday, skip_sunday,
           skip_holiday, late_mode, late_percent_bps, late_daily_cents, late_fixed_cents,
-          notes, status, created_at, skip_weekdays, fixed_installment, charge_frequency, pix_key
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?, ?)
+          notes, status, created_at, skip_weekdays, fixed_installment, charge_frequency, pix_key,
+          late_explain, late_explain_text
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?, ?, ?, ?)
         ''',
         [
           draft.clientId,
@@ -766,6 +773,8 @@ class Repo {
           draft.fixedInstallment ? 1 : 0,
           draft.chargeFrequency?.code ?? '',
           draft.pixKey,
+          draft.lateExplain ? 1 : 0,
+          draft.lateExplainText.trim(),
         ],
       );
       final id = db.lastInsertRowId;
@@ -952,6 +961,8 @@ class Repo {
       fixedInstallment: (row['fixed_installment'] as int) == 1,
       chargeFrequency: charge.isEmpty ? null : FrequencyLabel.parse(charge),
       pixKey: (row['pix_key'] as String?) ?? '',
+      lateExplain: (row['late_explain'] as int?) == 1,
+      lateExplainText: (row['late_explain_text'] as String?) ?? '',
     );
   }
 
@@ -990,7 +1001,8 @@ class Repo {
           UPDATE loans SET principal_cents = ?, rate_bps = ?, rate_mode = ?, frequency = ?,
             interval_days = ?, installment_count = ?, contract_date = ?, skip_saturday = ?,
             skip_sunday = ?, skip_holiday = ?, skip_weekdays = ?, late_mode = ?,
-            late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?
+            late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?,
+            late_explain = ?, late_explain_text = ?
           WHERE id = ?
           ''',
           [
@@ -1010,6 +1022,8 @@ class Repo {
             draft.lateDailyCents,
             draft.lateFixedCents,
             draft.notes.trim(),
+            draft.lateExplain ? 1 : 0,
+            draft.lateExplainText.trim(),
             loanId,
           ],
         );
@@ -1027,7 +1041,8 @@ class Repo {
         db.execute(
           '''
           UPDATE loans SET skip_saturday = ?, skip_sunday = ?, skip_holiday = ?, skip_weekdays = ?,
-            late_mode = ?, late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?
+            late_mode = ?, late_percent_bps = ?, late_daily_cents = ?, late_fixed_cents = ?, notes = ?,
+            late_explain = ?, late_explain_text = ?
           WHERE id = ?
           ''',
           [
@@ -1040,6 +1055,8 @@ class Repo {
             draft.lateDailyCents,
             draft.lateFixedCents,
             draft.notes.trim(),
+            draft.lateExplain ? 1 : 0,
+            draft.lateExplainText.trim(),
             loanId,
           ],
         );
@@ -1518,6 +1535,8 @@ class Repo {
       openCents: (row['open_cents'] as int?) ?? 0,
       deletedAt: row['deleted_at'] as String?,
       pixKey: (row['pix_key'] as String?) ?? '',
+      lateExplain: (row['late_explain'] as int?) == 1,
+      lateExplainText: (row['late_explain_text'] as String?) ?? '',
     );
   }
 

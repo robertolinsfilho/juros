@@ -37,9 +37,38 @@ class MessageBuilder {
   final Repo repo;
   final MessageConfig config;
 
+  static const _lateMessageKinds = {
+    'pre_vencimento',
+    'vencimento_hoje',
+    'atrasado',
+    'consolidada',
+    'aberto',
+    'situacao',
+  };
+
   String _render(String kind, Map<String, String> vars, LoanRecord? loan) {
-    final all = {...vars, 'assinatura': config.signature(pixOverride: loan?.pixKey ?? '')};
-    return renderTemplate(config.bodyFor(kind), all);
+    final explanation = lateExplanationOf(loan);
+    final all = {
+      ...vars,
+      'assinatura': config.signature(pixOverride: loan?.pixKey ?? ''),
+      'mora_explicacao': explanation,
+    };
+    var text = renderTemplate(config.bodyFor(kind), all);
+    if (explanation.isEmpty || !_lateMessageKinds.contains(kind)) return text;
+    text = text.replaceAll(explanation, '').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    return '$text\n\n$explanation';
+  }
+
+  String lateExplanationOf(LoanRecord? loan) {
+    if (loan == null || !loan.lateExplain || loan.lateMode == 'sem_mora') return '';
+    final text = loan.lateExplainText.trim();
+    if (text.isNotEmpty) return text;
+    return defaultLateExplanation(
+      mode: loan.lateMode,
+      percentBps: loan.latePercentBps,
+      dailyCents: loan.lateDailyCents,
+      fixedCents: loan.lateFixedCents,
+    );
   }
 
   String _mark(int number, int count) => config.fraction ? '$number/$count' : numberEmoji(number);

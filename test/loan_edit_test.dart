@@ -70,6 +70,7 @@ void main() {
     expect(loan.count, 2);
     expect(loan.notes, 'depois');
     expect(loan.lateMode, 'percentual_dia');
+    expect(loan.lateExplain, isFalse);
     expect(repo.installmentsOf(id).length, 2);
   });
 
@@ -105,6 +106,38 @@ void main() {
     expect(loan.notes, 'nova obs');
     expect(loan.lateMode, 'valor_fixo');
     expect(repo.installmentsOf(id).length, 3);
+  });
+
+  test('grava a explicação da mora e devolve no rascunho', () {
+    final id = repo.createLoan(
+      LoanDraft(
+        clientId: clientId,
+        principalCents: 100000,
+        rateBps: 1000,
+        rateMode: RateMode.porParcela,
+        contractMode: ContractMode.amortizacao,
+        frequency: Frequency.mensal,
+        intervalDays: 0,
+        count: 1,
+        contractDate: DateTime(2026, 10, 27),
+        skipSaturday: false,
+        skipSunday: false,
+        skipHoliday: false,
+        lateMode: 'percentual_dia',
+        latePercentBps: 100,
+        lateDailyCents: 0,
+        lateFixedCents: 0,
+        lateExplain: true,
+        lateExplainText: '*Se atrasar:* cada parcela soma 1% ao dia.',
+        notes: '',
+      ),
+    );
+    final loan = repo.loanById(id)!;
+    expect(loan.lateExplain, isTrue);
+    expect(loan.lateExplainText, contains('1% ao dia'));
+    final draft = repo.draftOf(id)!;
+    expect(draft.lateExplain, isTrue);
+    expect(draft.lateExplainText, contains('1% ao dia'));
   });
 
   testWidgets('tela de edição abre travada em juros + capital', (tester) async {

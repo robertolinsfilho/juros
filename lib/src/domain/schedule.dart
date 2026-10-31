@@ -96,6 +96,8 @@ class LoanDraft {
     required this.lateDailyCents,
     required this.lateFixedCents,
     required this.notes,
+    this.lateExplain = false,
+    this.lateExplainText = '',
     this.skipWeekdays = 0,
     this.fixedInstallment = false,
     this.openInterest = false,
@@ -124,6 +126,8 @@ class LoanDraft {
   final int lateDailyCents;
   final int lateFixedCents;
   final String notes;
+  final bool lateExplain;
+  final String lateExplainText;
   final int skipWeekdays;
   final bool fixedInstallment;
   final bool openInterest;
@@ -170,6 +174,30 @@ List<PlannedInstallment> buildSchedule(LoanDraft draft) {
         interestCents: slices[i].interest,
       ),
   ], draft);
+}
+
+String formatLatePercent(int bps) {
+  final value = bps / 100;
+  if (value == value.roundToDouble()) return '${value.toInt()}%';
+  return '${value.toStringAsFixed(2).replaceAll('.', ',')}%';
+}
+
+/// Texto padrão da mora, no mesmo formato da tela de novo empréstimo.
+String defaultLateExplanation({
+  required String mode,
+  required int percentBps,
+  required int dailyCents,
+  required int fixedCents,
+}) {
+  return switch (mode) {
+    'percentual_dia' =>
+      '*Se atrasar:* a cada dia de atraso, cada parcela em aberto soma ${formatLatePercent(percentBps)} ao dia sobre o valor dela (mora).',
+    'valor_fixo' =>
+      '*Se atrasar:* a cada dia de atraso, cada parcela em aberto soma ${fmtMoney(dailyCents)} por dia (mora).',
+    'taxa_unica_percentual' =>
+      '*Se atrasar:* cada parcela atrasada soma ${fmtMoney(fixedCents)} de taxa única e ${formatLatePercent(percentBps)} ao dia sobre o valor dela (mora).',
+    _ => '',
+  };
 }
 
 int lateFeeCents({

@@ -92,6 +92,18 @@ void main() {
     expect(isoDate(easterSunday(2026)), '2026-04-05');
   });
 
+  test('texto padrão da mora descreve o cálculo por parcela', () {
+    expect(
+      defaultLateExplanation(mode: 'percentual_dia', percentBps: 100, dailyCents: 0, fixedCents: 0),
+      contains('1% ao dia sobre o valor dela'),
+    );
+    expect(
+      defaultLateExplanation(mode: 'valor_fixo', percentBps: 0, dailyCents: 500, fixedCents: 0),
+      contains('R\$ 5,00 por dia'),
+    );
+    expect(defaultLateExplanation(mode: 'sem_mora', percentBps: 100, dailyCents: 0, fixedCents: 0), '');
+  });
+
   test('mora percentual e taxa única', () {
     expect(
       lateFeeCents(baseCents: 10000, days: 2, mode: 'percentual_dia', percentBps: 100, dailyCents: 0, fixedCents: 0),

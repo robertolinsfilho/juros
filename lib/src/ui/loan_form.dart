@@ -5,6 +5,7 @@ import '../domain/schedule.dart';
 import '../format.dart';
 import 'client_form.dart';
 import '../messages/templates.dart';
+import 'late_fee_fields.dart';
 import 'loan_created.dart';
 import 'widgets.dart';
 
@@ -38,10 +39,13 @@ class _LoanDialogState extends State<_LoanDialog> {
   final parcelFocus = FocusNode();
   final parcelFocusJuros = FocusNode();
   final jurosTotal = TextEditingController();
-  final latePercent = TextEditingController(text: '0');
+  final latePercent = TextEditingController(text: '1');
   final lateDaily = TextEditingController();
   final lateFixed = TextEditingController();
+  final lateExplainText = TextEditingController();
   final notes = TextEditingController();
+  bool lateExplain = true;
+  bool lateExplainTouched = false;
   String pixChoice = '';
   final rowAmounts = <int, TextEditingController>{};
   ContractMode contractMode = ContractMode.amortizacao;
@@ -107,6 +111,7 @@ class _LoanDialogState extends State<_LoanDialog> {
     latePercent.dispose();
     lateDaily.dispose();
     lateFixed.dispose();
+    lateExplainText.dispose();
     notes.dispose();
     for (final controller in rowAmounts.values) {
       controller.dispose();
@@ -140,6 +145,8 @@ class _LoanDialogState extends State<_LoanDialog> {
       latePercentBps: parsePercentBps(latePercent.text) ?? 0,
       lateDailyCents: parseMoney(lateDaily.text) ?? 0,
       lateFixedCents: parseMoney(lateFixed.text) ?? 0,
+      lateExplain: lateMode != 'sem_mora' && lateExplain,
+      lateExplainText: lateExplainText.text,
       notes: notes.text,
       pixKey: pixChoice,
       skipWeekdays: skipWeekdays,
@@ -239,6 +246,36 @@ class _LoanDialogState extends State<_LoanDialog> {
     setState(() {
       skipWeekdays = selected ? skipWeekdays | bit : skipWeekdays & ~bit;
     });
+  }
+
+  void changeLateMode(String next) {
+    setState(() {
+      lateMode = next;
+      if (next == 'percentual_dia' && (parsePercentBps(latePercent.text) ?? 0) == 0) {
+        latePercent.text = '1';
+      }
+      if (next == 'sem_mora') {
+        lateExplain = false;
+      } else {
+        lateExplain = true;
+      }
+    });
+    refreshLateExplanation();
+  }
+
+  void refreshLateExplanation() {
+    if (lateExplainTouched) {
+      setState(() {});
+      return;
+    }
+    fillLateExplanation(
+      lateExplainText,
+      mode: lateMode,
+      percent: latePercent,
+      daily: lateDaily,
+      fixed: lateFixed,
+    );
+    setState(() {});
   }
 
   String frequencyText(Frequency item) {
@@ -534,30 +571,18 @@ class _LoanDialogState extends State<_LoanDialog> {
                 ],
               ],
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: ValueKey(lateMode),
-                initialValue: lateMode,
-                decoration: const InputDecoration(labelText: 'Juros por atraso (mora)'),
-                items: const [
-                  DropdownMenuItem(value: 'sem_mora', child: Text('Sem mora')),
-                  DropdownMenuItem(value: 'percentual_dia', child: Text('% ao dia')),
-                  DropdownMenuItem(value: 'valor_fixo', child: Text('Valor fixo por dia')),
-                  DropdownMenuItem(value: 'taxa_unica_percentual', child: Text('Taxa única + % ao dia')),
-                ],
-                onChanged: (next) => setState(() => lateMode = next ?? lateMode),
+              LateFeeFields(
+                mode: lateMode,
+                onMode: changeLateMode,
+                percent: latePercent,
+                daily: lateDaily,
+                fixed: lateFixed,
+                explain: lateExplain,
+                onExplain: (next) => setState(() => lateExplain = next),
+                explainText: lateExplainText,
+                onExplainEdited: () => lateExplainTouched = true,
+                onValuesChanged: refreshLateExplanation,
               ),
-              if (lateMode == 'percentual_dia' || lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 16),
-                TextField(controller: latePercent, decoration: const InputDecoration(labelText: 'Percentual ao dia'), keyboardType: TextInputType.number),
-              ],
-              if (lateMode == 'valor_fixo') ...[
-                const SizedBox(height: 16),
-                TextField(controller: lateDaily, decoration: const InputDecoration(labelText: 'Valor por dia'), keyboardType: TextInputType.number),
-              ],
-              if (lateMode == 'taxa_unica_percentual') ...[
-                const SizedBox(height: 16),
-                TextField(controller: lateFixed, decoration: const InputDecoration(labelText: 'Taxa única'), keyboardType: TextInputType.number),
-              ],
               if (MessageConfig(widget.repo).pixKeys.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
