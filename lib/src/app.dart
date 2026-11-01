@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'auth/account_sync.dart';
 import 'auth/auth_api.dart';
@@ -213,6 +214,13 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
       navigatorKey: navigatorKey,
       title: brandName,
       debugShowCheckedModeBanner: false,
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: buildTheme(),
       builder: (context, child) {
         return MediaQuery(
