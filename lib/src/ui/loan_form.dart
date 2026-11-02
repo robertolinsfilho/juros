@@ -213,11 +213,11 @@ class _LoanDialogState extends State<_LoanDialog> {
   }
 
   Future<void> addClient() async {
-    final saved = await showClientForm(context, widget.repo);
-    if (!saved || !mounted) return;
+    final created = await showClientForm(context, widget.repo);
+    if (created == null || !mounted) return;
     setState(() {
       clients = widget.repo.listClients();
-      if (clients.isNotEmpty) clientId = clients.last.id;
+      clientId = created;
     });
   }
 
@@ -303,6 +303,7 @@ class _LoanDialogState extends State<_LoanDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DropdownButtonFormField<int>(
+                key: ValueKey(clientId),
                 initialValue: clientId,
                 decoration: const InputDecoration(labelText: 'Cliente *'),
                 items: [

@@ -28,11 +28,11 @@ class _ClientsPageState extends State<ClientsPage> {
   void reload() => setState(() => clients = widget.repo.listClients(query: search.text));
 
   Future<void> create() async {
-    if (await showClientForm(context, widget.repo) && mounted) reload();
+    if (await showClientForm(context, widget.repo) != null && mounted) reload();
   }
 
   Future<void> edit(ClientRecord client) async {
-    if (await showClientForm(context, widget.repo, client: client) && mounted) reload();
+    if (await showClientForm(context, widget.repo, client: client) != null && mounted) reload();
   }
 
   Future<void> remove(ClientRecord client) async {

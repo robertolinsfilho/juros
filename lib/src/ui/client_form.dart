@@ -4,11 +4,12 @@ import '../data/repository.dart';
 import '../format.dart';
 import 'widgets.dart';
 
-Future<bool> showClientForm(BuildContext context, Repo repo, {ClientRecord? client}) {
-  return showDialog<bool>(
+/// Devolve o id do cliente salvo. Nulo se a pessoa fechou sem salvar.
+Future<int?> showClientForm(BuildContext context, Repo repo, {ClientRecord? client}) {
+  return showDialog<int>(
     context: context,
     builder: (context) => _ClientDialog(repo: repo, client: client),
-  ).then((value) => value ?? false);
+  );
 }
 
 class _ClientDialog extends StatefulWidget {
@@ -47,7 +48,7 @@ class _ClientDialogState extends State<_ClientDialog> {
       setState(() => error = 'Informe o nome e um telefone com DDD.');
       return;
     }
-    widget.repo.saveClient(
+    final saved = widget.repo.saveClient(
       id: widget.client?.id,
       name: name.text,
       document: document.text,
@@ -56,7 +57,7 @@ class _ClientDialogState extends State<_ClientDialog> {
       address: address.text,
       workAddress: showWork ? work.text : '',
     );
-    Navigator.pop(context, true);
+    Navigator.pop(context, saved);
   }
 
   @override
@@ -100,7 +101,7 @@ class _ClientDialogState extends State<_ClientDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         FilledButton(onPressed: save, child: const Text('Salvar cliente')),
       ],
     );

@@ -27,7 +27,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void reload() => setState(() => data = widget.repo.dashboard());
 
   Future<void> createClient() async {
-    if (await showClientForm(context, widget.repo) && mounted) reload();
+    if (await showClientForm(context, widget.repo) != null && mounted) reload();
   }
 
   Future<void> createLoan() async {

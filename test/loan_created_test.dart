@@ -4,6 +4,7 @@ import 'package:juros/src/data/repository.dart';
 import 'package:juros/src/domain/schedule.dart';
 import 'package:juros/src/theme.dart';
 import 'package:juros/src/ui/loan_created.dart';
+import 'package:juros/src/ui/loan_form.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 LoanDraft draft(int clientId, ContractMode mode, {int count = 1}) {
@@ -78,5 +79,33 @@ void main() {
     expect(summary.rows.length, 3);
     expect(summary.secondLabel, 'Parcelas');
     expect(summary.thirdLabel, 'Total a pagar');
+  });
+
+  testWidgets('cliente recém-criado fica selecionado no empréstimo', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    repo.saveClient(name: 'Zeca', document: '', phone: '86911111111', zip: '', address: '', workAddress: '');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showLoanForm(context, repo),
+            child: const Text('abrir'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cadastrar novo cliente'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Nome completo'), 'Bruno');
+    await tester.enterText(find.widgetWithText(TextField, 'Telefone / WhatsApp'), '86988887777');
+    await tester.tap(find.text('Salvar cliente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bruno'), findsOneWidget);
+    expect(find.text('Zeca'), findsNothing);
   });
 }
