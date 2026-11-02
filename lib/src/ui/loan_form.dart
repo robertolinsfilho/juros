@@ -9,10 +9,10 @@ import 'late_fee_fields.dart';
 import 'loan_created.dart';
 import 'widgets.dart';
 
-Future<bool> showLoanForm(BuildContext context, Repo repo) async {
+Future<bool> showLoanForm(BuildContext context, Repo repo, {int? clientId}) async {
   final loanId = await showDialog<int>(
     context: context,
-    builder: (context) => _LoanDialog(repo: repo),
+    builder: (context) => _LoanDialog(repo: repo, clientId: clientId),
   );
   if (loanId == null) return false;
   if (context.mounted) await showLoanCreated(context, repo, loanId);
@@ -20,9 +20,10 @@ Future<bool> showLoanForm(BuildContext context, Repo repo) async {
 }
 
 class _LoanDialog extends StatefulWidget {
-  const _LoanDialog({required this.repo});
+  const _LoanDialog({required this.repo, this.clientId});
 
   final Repo repo;
+  final int? clientId;
 
   @override
   State<_LoanDialog> createState() => _LoanDialogState();
@@ -30,7 +31,7 @@ class _LoanDialog extends StatefulWidget {
 
 class _LoanDialogState extends State<_LoanDialog> {
   late List<ClientRecord> clients = widget.repo.listClients();
-  int? clientId;
+  late int? clientId = widget.clientId;
   final principal = TextEditingController();
   final rate = TextEditingController();
   final count = TextEditingController(text: '1');

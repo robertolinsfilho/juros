@@ -57,7 +57,7 @@ class _LoansPageState extends State<LoansPage> {
   Widget build(BuildContext context) {
     final current = selected == null ? null : widget.repo.loanById(selected!);
     if (current != null) {
-      return _LoanDetail(
+      return LoanDetail(
         repo: widget.repo,
         loan: current,
         onBack: () => setState(() => selected = null),
@@ -171,8 +171,9 @@ class _LoansPageState extends State<LoansPage> {
   }
 }
 
-class _LoanDetail extends StatelessWidget {
-  const _LoanDetail({
+class LoanDetail extends StatelessWidget {
+  const LoanDetail({
+    super.key,
     required this.repo,
     required this.loan,
     required this.onBack,
