@@ -228,17 +228,14 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   const EmptyHint(icon: Icons.event_available, title: 'Dia livre', body: 'Nenhuma parcela em aberto nesta data.')
                 else
                   for (final item in due)
-                    RecordTile(
-                      title: item.clientName,
+                    _ChargeTile(
+                      item: item,
+                      today: today,
                       subtitle: _dueSubtitle(item, today, selected: isoDate(selected)),
-                      actions: _chargeActions(
-                        item: item,
-                        today: today,
-                        onCharge: () => charge(item),
-                        onReceive: () => receive(item),
-                        onDetails: () => details(item),
-                        onPromise: () => promise(item),
-                      ),
+                      onCharge: () => charge(item),
+                      onReceive: () => receive(item),
+                      onDetails: () => details(item),
+                      onPromise: () => promise(item),
                     ),
               ],
             ),
@@ -285,6 +282,7 @@ class _Unpaid extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton(
+            style: _actionStyle(),
             onPressed: active ? null : onEnable,
             child: Text(active ? 'Avisos ativos neste aparelho' : 'Ativar avisos neste aparelho'),
           ),
@@ -293,18 +291,15 @@ class _Unpaid extends StatelessWidget {
             const Text('Ninguém em atraso.', style: TextStyle(color: AppColors.muted))
           else
             for (final item in items)
-              RecordTile(
-                title: item.clientName,
+              _ChargeTile(
+                item: item,
+                today: today,
                 subtitle: _dueSubtitle(item, today),
-                actions: _chargeActions(
-                  item: item,
-                  today: today,
-                  moneyColor: AppColors.red,
-                  onCharge: () => onCharge(item),
-                  onReceive: () => onReceive(item),
-                  onDetails: () => onDetails(item),
-                  onPromise: () => onPromise(item),
-                ),
+                moneyColor: AppColors.red,
+                onCharge: () => onCharge(item),
+                onReceive: () => onReceive(item),
+                onDetails: () => onDetails(item),
+                onPromise: () => onPromise(item),
               ),
         ],
       ),
@@ -360,7 +355,11 @@ class _Reminders extends StatelessWidget {
                 title: item.clientName,
                 subtitle: '${item.number}/${item.count} · ${fmtDateIso(item.dueDate)} · ${fmtMoney(item.faceCents)}',
                 actions: [
-                  FilledButton(onPressed: () => onRemind(item), child: const Text('Avisar')),
+                  FilledButton(
+                    style: _actionStyle(),
+                    onPressed: () => onRemind(item),
+                    child: const Text('Avisar'),
+                  ),
                 ],
               ),
         ],
@@ -438,30 +437,115 @@ String _dueSubtitle(InstallmentRecord item, DateTime today, {String? selected}) 
   return '$money · lembrete neste dia';
 }
 
-List<Widget> _chargeActions({
-  required InstallmentRecord item,
-  required DateTime today,
-  required VoidCallback onCharge,
-  required VoidCallback onReceive,
-  required VoidCallback onDetails,
-  required VoidCallback onPromise,
-  Color? moneyColor,
+class _ChargeTile extends StatelessWidget {
+  const _ChargeTile({
+    required this.item,
+    required this.today,
+    required this.subtitle,
+    required this.onCharge,
+    required this.onReceive,
+    required this.onDetails,
+    required this.onPromise,
+    this.moneyColor,
+  });
+
+  final InstallmentRecord item;
+  final DateTime today;
+  final String subtitle;
+  final VoidCallback onCharge;
+  final VoidCallback onReceive;
+  final VoidCallback onDetails;
+  final VoidCallback onPromise;
+  final Color? moneyColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.clientName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: Space.tight),
+                    Text(subtitle, style: const TextStyle(color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Space.compact),
+              Text(
+                fmtMoney(item.dueCents(today)),
+                style: TextStyle(fontWeight: FontWeight.w700, color: moneyColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  style: _actionStyle(),
+                  onPressed: onCharge,
+                  child: const Text('Cobrar'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  style: _actionStyle(),
+                  onPressed: onReceive,
+                  icon: const Icon(Icons.payments_outlined, size: 16),
+                  label: const Text('Receber'),
+                ),
+                const SizedBox(width: 8),
+                _PromiseButton(item: item, today: today, onPressed: onPromise),
+                const SizedBox(width: 4),
+                _iconAction(tooltip: 'Ver detalhes', icon: Icons.visibility_outlined, onPressed: onDetails),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+ButtonStyle _actionStyle() {
+  return const ButtonStyle(
+    minimumSize: WidgetStatePropertyAll(Size(0, 36)),
+    maximumSize: WidgetStatePropertyAll(Size(double.infinity, 36)),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+    textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w700, height: 1)),
+  );
+}
+
+Widget _iconAction({
+  required String tooltip,
+  required IconData icon,
+  required VoidCallback onPressed,
+  Color? color,
 }) {
-  return [
-    Text(
-      fmtMoney(item.dueCents(today)),
-      style: TextStyle(color: moneyColor, fontWeight: moneyColor == null ? null : FontWeight.w700),
+  return IconButton(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    icon: Icon(icon, size: 18, color: color),
+    style: IconButton.styleFrom(
+      foregroundColor: color ?? AppColors.muted,
+      fixedSize: const Size(36, 36),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
-    TextButton(onPressed: onCharge, child: const Text('Cobrar')),
-    FilledButton(onPressed: onReceive, child: const Text('Receber')),
-    _PromiseButton(item: item, today: today, onPressed: onPromise),
-    IconButton(
-      tooltip: 'Ver detalhes',
-      visualDensity: VisualDensity.compact,
-      onPressed: onDetails,
-      icon: const Icon(Icons.visibility_outlined, size: 20),
-    ),
-  ];
+  );
 }
 
 class _PromiseButton extends StatelessWidget {
@@ -482,26 +566,20 @@ class _PromiseButton extends StatelessWidget {
         : expired
         ? 'Lembrete vencido: $when'
         : 'Lembrete: $when';
-    return Tooltip(
-      message: tip,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          foregroundColor: color,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _iconAction(
+          tooltip: tip,
+          icon: promise == null ? Icons.notifications_none : Icons.notifications_active,
+          color: color,
+          onPressed: onPressed,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(promise == null ? Icons.notifications_none : Icons.notifications_active, size: 18, color: color),
-            if (when != null) ...[
-              const SizedBox(width: 4),
-              Text(when, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
-            ],
-          ],
-        ),
-      ),
+        if (when != null) ...[
+          const SizedBox(width: 6),
+          Text(when, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13, height: 1)),
+        ],
+      ],
     );
   }
 }
