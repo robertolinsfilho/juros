@@ -25,6 +25,7 @@ class _ConsultasPageState extends State<ConsultasPage> {
   String? error;
   bool loading = true;
   int tab = 0;
+  int? retryingId;
 
   @override
   void initState() {
@@ -66,6 +67,26 @@ class _ConsultasPageState extends State<ConsultasPage> {
       ),
     );
     if (mounted) await load();
+  }
+
+  Future<void> retryRecord(ConsultaRecord record) async {
+    setState(() => retryingId = record.id);
+    try {
+      final next = await widget.auth.retryConsulta(widget.token, record.id);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => ConsultaResultDialog(auth: widget.auth, token: widget.token, record: next),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() => retryingId = null);
+        await load();
+      }
+    }
   }
 
   Future<void> openRecord(ConsultaRecord record) async {
@@ -126,7 +147,12 @@ class _ConsultasPageState extends State<ConsultasPage> {
           if (tab == 0)
             _Catalog(products: current.products, onOpen: openProduct)
           else
-            _History(records: current.history, onOpen: openRecord),
+            _History(
+              records: current.history,
+              onOpen: openRecord,
+              onRetry: retryRecord,
+              retryingId: retryingId,
+            ),
       ],
     );
   }
@@ -418,10 +444,17 @@ class _Catalog extends StatelessWidget {
 }
 
 class _History extends StatelessWidget {
-  const _History({required this.records, required this.onOpen});
+  const _History({
+    required this.records,
+    required this.onOpen,
+    required this.onRetry,
+    required this.retryingId,
+  });
 
   final List<ConsultaRecord> records;
   final ValueChanged<ConsultaRecord> onOpen;
+  final ValueChanged<ConsultaRecord> onRetry;
+  final int? retryingId;
 
   @override
   Widget build(BuildContext context) {
@@ -432,12 +465,22 @@ class _History extends StatelessWidget {
       children: [
         for (final record in records) ...[
           Panel(
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(record.title),
-              subtitle: Text('${_maskDocument(record.document)} · ${record.statusLabel}'),
-              trailing: Text(fmtMoney(record.amountCents), style: const TextStyle(color: AppColors.green)),
-              onTap: () => onOpen(record),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(_faces[record.slug]?.title ?? record.title),
+                  subtitle: Text('${_maskDocument(record.document)} · ${record.statusLabel}'),
+                  trailing: Text(fmtMoney(record.amountCents), style: const TextStyle(color: AppColors.green)),
+                  onTap: () => onOpen(record),
+                ),
+                if (record.status == 'paga')
+                  OutlinedButton(
+                    onPressed: retryingId == record.id ? null : () => onRetry(record),
+                    child: Text(retryingId == record.id ? 'Buscando...' : 'Buscar de novo'),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
