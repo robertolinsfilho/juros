@@ -482,7 +482,8 @@ class Repo {
       for (final table in accountTables) table: _tableRows(table),
       'settings': {
         for (final row in db.select('SELECT key, value FROM settings ORDER BY key'))
-          if (row['key'] != 'session_token') row['key'] as String: row['value'] as String,
+          if (row['key'] != 'session_token' && row['key'] != 'aviso_tela')
+            row['key'] as String: row['value'] as String,
       },
     };
   }
@@ -517,7 +518,7 @@ class Repo {
       for (final table in accountTables.reversed) {
         db.execute('DELETE FROM $table');
       }
-      db.execute("DELETE FROM settings WHERE key != 'session_token'");
+      db.execute("DELETE FROM settings WHERE key != 'session_token' AND key != 'aviso_tela'");
       for (final table in accountTables) {
         final rows = data[table];
         if (rows is! List) continue;
@@ -1158,6 +1159,43 @@ class Repo {
 
   List<InstallmentRecord> dueOn(DateTime day) => _dueBetween(isoDate(day), isoDate(day));
 
+  /// Quem ainda deve uma parcela vencida, e quem vence até o prazo do aviso.
+  ({List<InstallmentRecord> unpaid, List<InstallmentRecord> upcoming}) paymentAlerts(DateTime today) {
+    final day = dateOnly(today);
+    final end = day.add(Duration(days: reminderDays));
+    final items = _dueBetween('0001-01-01', isoDate(end));
+    final unpaid = <InstallmentRecord>[];
+    final upcoming = <InstallmentRecord>[];
+    for (final item in items) {
+      if (parseIsoDate(item.dueDate).isBefore(day)) {
+        unpaid.add(item);
+      } else {
+        upcoming.add(item);
+      }
+    }
+    return (unpaid: unpaid, upcoming: upcoming);
+  }
+
+  bool noticeShown(String signature, DateTime today) {
+    return setting('aviso_tela') == '${isoDate(today)}|$signature';
+  }
+
+  void markNoticeShown(String signature, DateTime today) {
+    setSetting('aviso_tela', '${isoDate(today)}|$signature');
+  }
+
+  /// Soma, por dia do mês, o que ainda está em aberto, já com a mora de hoje.
+  Map<int, int> dueAmountsInMonth(DateTime month, DateTime today) {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 0);
+    final amounts = <int, int>{};
+    for (final item in _dueBetween(isoDate(start), isoDate(end))) {
+      final day = parseIsoDate(item.dueDate).day;
+      amounts[day] = (amounts[day] ?? 0) + item.dueCents(today);
+    }
+    return amounts;
+  }
+
   /// Quantos dias antes do vencimento o aviso entra na fila. Zero avisa só no dia.
   int get reminderDays {
     final value = int.tryParse(setting('aviso_dias', '1')) ?? 1;
@@ -1240,26 +1278,6 @@ class Repo {
       receivedToday: receivedToday,
       lentToday: lentToday,
     );
-  }
-
-  Map<int, int> dueCountsInMonth(DateTime day) {
-    final start = isoDate(DateTime(day.year, day.month, 1));
-    final end = isoDate(DateTime(day.year, day.month + 1, 1));
-    final rows = db.select(
-      '''
-      SELECT i.due_date AS due, COUNT(*) AS c
-      FROM installments i
-      JOIN loans l ON l.id = i.loan_id
-      WHERE l.deleted_at IS NULL AND l.status = 'aberto'
-        AND i.paid_at IS NULL AND i.status = 'aberta'
-        AND i.due_date >= ? AND i.due_date < ?
-      GROUP BY i.due_date
-      ''',
-      [start, end],
-    );
-    return {
-      for (final row in rows) parseIsoDate(row['due'] as String).day: row['c'] as int,
-    };
   }
 
   ReportData report(DateTime start, DateTime end) {

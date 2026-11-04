@@ -78,6 +78,61 @@ void main() {
     expect(repo.dueReminders(DateTime(2026, 11, 2)), isEmpty);
   });
 
+  test('o calendário mostra o valor em aberto do dia escolhido, com a mora', () {
+    final repo = Repo(sqlite3.openInMemory(), ':memory:');
+    addTearDown(repo.close);
+    final clientId = repo.saveClient(name: 'Maria', document: '', phone: '86999999999', zip: '', address: '', workAddress: '');
+    LoanDraft draft(DateTime contract, String lateMode, int percent) {
+      return LoanDraft(
+        clientId: clientId,
+        principalCents: 10000,
+        rateBps: 0,
+        rateMode: RateMode.total,
+        contractMode: ContractMode.amortizacao,
+        frequency: Frequency.mensal,
+        intervalDays: 0,
+        count: 1,
+        contractDate: contract,
+        skipSaturday: false,
+        skipSunday: false,
+        skipHoliday: false,
+        lateMode: lateMode,
+        latePercentBps: percent,
+        lateDailyCents: 0,
+        lateFixedCents: 0,
+        notes: '',
+      );
+    }
+
+    final paidId = repo.createLoan(draft(DateTime(2026, 10, 1), 'sem_mora', 0));
+    final paid = repo.installmentsOf(paidId).single;
+    expect(paid.dueDate, '2026-11-01');
+    repo.payInstallment(paid.id, DateTime(2026, 11, 1));
+
+    final openId = repo.createLoan(draft(DateTime(2026, 10, 3), 'percentual_dia', 100));
+    final open = repo.installmentsOf(openId).single;
+    expect(open.dueDate, '2026-11-03');
+
+    final today = DateTime(2026, 11, 4);
+    expect(repo.monthPulse(DateTime(2026, 11, 1)).receivedToday, 10000);
+    expect(repo.monthPulse(DateTime(2026, 11, 3)).receivedToday, 0);
+    final amounts = repo.dueAmountsInMonth(DateTime(2026, 11, 1), today);
+    expect(amounts[1], isNull);
+    expect(amounts[3], 10100);
+    expect(repo.dueOn(DateTime(2026, 11, 3)).single.dueCents(today), amounts[3]);
+
+    final alerts = repo.paymentAlerts(today);
+    expect(alerts.unpaid.map((item) => item.id), [open.id]);
+    expect(alerts.upcoming, isEmpty);
+
+    final soonId = repo.createLoan(draft(DateTime(2026, 10, 5), 'sem_mora', 0));
+    final soon = repo.installmentsOf(soonId).single;
+    expect(soon.dueDate, '2026-11-05');
+    final later = repo.paymentAlerts(today);
+    expect(later.upcoming.map((item) => item.id), [soon.id]);
+    expect(repo.dueReminders(DateTime(2026, 11, 6)), isEmpty);
+  });
+
   test('a cópia da conta volta o cliente e deixa o token nesta tela', () {
     final repo = Repo(sqlite3.openInMemory(), ':memory:');
     addTearDown(repo.close);

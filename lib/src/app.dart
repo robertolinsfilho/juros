@@ -16,6 +16,7 @@ import 'ui/widgets.dart';
 import 'ui/landing_page.dart';
 import 'ui/loans_page.dart';
 import 'ui/brand.dart';
+import 'alerts.dart';
 import 'ui/plans_dialog.dart';
 import 'ui/profile_page.dart';
 import 'ui/login_page.dart';
@@ -61,7 +62,9 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     account.onApplied = () {
-      if (mounted) setState(() => scale = widget.repo.fontScale);
+      if (!mounted) return;
+      setState(() => scale = widget.repo.fontScale);
+      deliverPaymentNotices(widget.repo, ask: false);
     };
     restore();
   }
@@ -78,6 +81,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
     if (token.isEmpty) return;
     if (state == AppLifecycleState.resumed) {
       account.flush();
+      deliverPaymentNotices(widget.repo, ask: false);
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       account.flush(pull: false);
     }
@@ -101,6 +105,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
         token = saved;
         checking = false;
       });
+      deliverPaymentNotices(widget.repo, ask: false);
     } catch (_) {
       writeSession('');
       widget.repo.removeSetting('session_token');
@@ -138,6 +143,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
       scale = widget.repo.fontScale;
       checking = false;
     });
+    deliverPaymentNotices(widget.repo, ask: false);
   }
 
   Future<void> leave() async {
@@ -195,7 +201,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
         daysLeft: current.access.subscriber ? null : current.access.daysLeft,
         onSubscribe: () => subscribe(current),
       ),
-      1 => CollectionsPage(repo: widget.repo),
+      1 => CollectionsPage(repo: widget.repo, onChanged: () => setState(() {})),
       2 => ClientsPage(repo: widget.repo),
       3 => LoansPage(repo: widget.repo),
       10 => ConsultasPage(auth: auth, token: token, admin: current.isAdmin),
@@ -210,6 +216,8 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final current = user;
+    final alerts = current == null ? null : widget.repo.paymentAlerts(DateTime.now());
+    final alertCount = alerts == null ? 0 : alerts.unpaid.length + alerts.upcoming.length;
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: brandName,
@@ -260,6 +268,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
                   user: current,
                   section: visibleSection(current),
                   destinations: destinationsFor(current),
+                  alertCount: alertCount,
                   onSelected: (id) => setState(() => section = id),
                   onProfile: () => setState(() => section = 9),
                   onLogout: leave,
@@ -325,6 +334,7 @@ class _Shell extends StatelessWidget {
     required this.user,
     required this.section,
     required this.destinations,
+    required this.alertCount,
     required this.onSelected,
     required this.onProfile,
     required this.onLogout,
@@ -335,6 +345,7 @@ class _Shell extends StatelessWidget {
   final SessionUser user;
   final int section;
   final List<(IconData, String, int)> destinations;
+  final int alertCount;
   final ValueChanged<int> onSelected;
   final VoidCallback onProfile;
   final VoidCallback onLogout;
@@ -375,6 +386,7 @@ class _Shell extends StatelessWidget {
                     _SectionBar(
                       selected: section,
                       destinations: destinations,
+                      alertCount: alertCount,
                       onSelected: onSelected,
                     ),
                   ],
@@ -411,7 +423,10 @@ class _Shell extends StatelessWidget {
           ),
           destinations: [
             for (final item in destinations)
-              NavigationRailDestination(icon: Icon(item.$1), label: Text(item.$2)),
+              NavigationRailDestination(
+                icon: _alertIcon(item.$1, item.$3 == 1 ? alertCount : 0),
+                label: Text(item.$2),
+              ),
           ],
         ),
         const VerticalDivider(width: 1),
@@ -426,6 +441,12 @@ class _Shell extends StatelessWidget {
       ],
     );
   }
+}
+
+Widget _alertIcon(IconData icon, int count, {Color? color, double size = 24}) {
+  final mark = Icon(icon, color: color, size: size);
+  if (count <= 0) return mark;
+  return Badge(label: Text(count > 9 ? '9+' : '$count'), child: mark);
 }
 
 class _AccountBar extends StatelessWidget {
@@ -503,11 +524,13 @@ class _SectionBar extends StatelessWidget {
   const _SectionBar({
     required this.selected,
     required this.destinations,
+    required this.alertCount,
     required this.onSelected,
   });
 
   final int selected;
   final List<(IconData, String, int)> destinations;
+  final int alertCount;
   final ValueChanged<int> onSelected;
 
   static const primary = [0, 1, 2, 3];
@@ -537,6 +560,7 @@ class _SectionBar extends StatelessWidget {
     return _NavSlot(
       icon: item.$1,
       label: item.$2,
+      badge: item.$3 == 1 ? alertCount : 0,
       selected: selected == item.$3,
       onTap: () => onSelected(item.$3),
     );
@@ -588,12 +612,14 @@ class _NavSlot extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badge = 0,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -603,7 +629,7 @@ class _NavSlot extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 22),
+          _alertIcon(icon, badge, color: color, size: 22),
           const SizedBox(height: 4),
           Text(
             label,
