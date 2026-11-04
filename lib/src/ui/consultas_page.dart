@@ -475,7 +475,7 @@ class _History extends StatelessWidget {
                   trailing: Text(fmtMoney(record.amountCents), style: const TextStyle(color: AppColors.green)),
                   onTap: () => onOpen(record),
                 ),
-                if (record.status == 'paga')
+                if (record.status == 'paga' || record.status == 'consultando')
                   OutlinedButton(
                     onPressed: retryingId == record.id ? null : () => onRetry(record),
                     child: Text(retryingId == record.id ? 'Buscando...' : 'Buscar de novo'),
@@ -660,7 +660,7 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
                     padding: EdgeInsets.only(top: 8),
                     child: Text('Aguardando a confirmação e o retorno dos dados.', style: TextStyle(color: AppColors.muted)),
                   ),
-                if (current.status == 'paga') ...[
+                if (current.status == 'paga' || current.status == 'consultando') ...[
                   const SizedBox(height: 16),
                   OutlinedButton(onPressed: busy ? null : retry, child: const Text('Buscar de novo')),
                 ],
@@ -729,7 +729,7 @@ class _ConsultaResultDialogState extends State<ConsultaResultDialog> {
               Text('${record.statusLabel} · ${_maskDocument(record.document)}', style: const TextStyle(color: AppColors.muted)),
               const SizedBox(height: 16),
               if (record.done) ResultView(value: record.result) else Text(record.error.isEmpty ? record.statusLabel : record.error),
-              if (record.status == 'paga') ...[
+              if (record.status == 'paga' || record.status == 'consultando') ...[
                 const SizedBox(height: 16),
                 OutlinedButton(onPressed: busy ? null : retry, child: Text(busy ? 'Buscando...' : 'Buscar de novo')),
               ],

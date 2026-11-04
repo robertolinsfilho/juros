@@ -644,9 +644,10 @@ def build_consulta_preference(consult_id, title, cents, email=""):
 
 
 class ConsultaError(Exception):
-    def __init__(self, message, retry=False):
+    def __init__(self, message, retry=False, transient=False):
         super().__init__(message)
         self.retry = retry
+        self.transient = transient
 
 
 def _consulta_http_message(error):
@@ -690,7 +691,23 @@ def consulta_payload(loaded):
 
 
 def run_consulta(slug, search_type, document):
-    """Busca o dossiê na APIBrasil. O token fica só na variável de ambiente."""
+    """Busca o dossiê na APIBrasil. Uma falha passageira da fonte é tentada de novo."""
+    last = None
+    for attempt in range(3):
+        if attempt:
+            time.sleep(2)
+        try:
+            return _consulta_once(slug, search_type, document)
+        except ConsultaError as error:
+            last = error
+            if not error.transient or attempt == 2:
+                raise
+            print(f"consulta tentativa {attempt + 1} falhou", flush=True)
+    raise last
+
+
+def _consulta_once(slug, search_type, document):
+    """Uma chamada ao fornecedor. O token fica só na variável de ambiente."""
     call = CONSULTAS[slug]["calls"][search_type]
     token = consulta_token()
     if not token:
@@ -712,14 +729,17 @@ def run_consulta(slug, search_type, document):
             raise ConsultaError("O saldo do fornecedor acabou. Tente de novo sem pagar outra vez.", retry=True) from error
         if error.code == 404:
             raise ConsultaError("Nenhum dado encontrado para esta consulta.") from error
-        if error.code in (408, 429, 502, 503, 504):
-            raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
-        if error.code == 500:
-            raise ConsultaError("A fonte não conseguiu concluir esta consulta. Tente de novo sem pagar outra vez.", retry=True) from error
+        if error.code in (408, 429, 500, 502, 503, 504):
+            message = (
+                "A fonte demorou para responder. Tente de novo sem pagar outra vez."
+                if error.code != 500
+                else "A fonte não conseguiu concluir esta consulta. Tente de novo sem pagar outra vez."
+            )
+            raise ConsultaError(message, retry=True, transient=True) from error
         raise ConsultaError("A consulta não foi concluída.") from error
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
         print(f"consulta rede {error}", flush=True)
-        raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
+        raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True, transient=True) from error
     if not isinstance(loaded, dict) or loaded.get("error") is True:
         raw = " ".join(str(loaded.get("message") or "").split()) if isinstance(loaded, dict) else ""
         if _saldo(raw):
@@ -1940,6 +1960,13 @@ class Handler(BaseHTTPRequestHandler):
         if not row["mp_id"] or row["status"] == "aguardando":
             self._send(400, {"error": "Esta consulta ainda não foi paga."})
             return
+        if row["status"] == "consultando" and not row["result_json"]:
+            conn.execute(
+                "UPDATE consultations SET status = 'paga' WHERE id = ? AND status = 'consultando' AND result_json = ''",
+                (consult_id,),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM consultations WHERE id = ?", (consult_id,)).fetchone()
         if row["status"] == "paga":
             finish_consulta(conn, row)
             row = conn.execute("SELECT * FROM consultations WHERE id = ?", (consult_id,)).fetchone()

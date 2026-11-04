@@ -187,4 +187,44 @@ void main() {
     expect(find.text('Nm primeiro'), findsNothing);
     expect(find.text('Results'), findsNothing);
   });
+
+  testWidgets('o cadastro de empresa e os endereços do CPF aparecem', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: ResultView(
+              value: {
+                'results': {
+                  'contato': {
+                    'endereco': [
+                      {
+                        'ds_logradouro': 'RUA PROFESSORA ZULMIRA',
+                        'nr_numero': '101',
+                        'ds_bairro': 'CHARQUEADAS',
+                        'ds_cidade': 'CAXIAS DO SUL',
+                        'sg_uf': 'RS',
+                        'nr_cep': '95110151',
+                      },
+                    ],
+                  },
+                },
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('RUA PROFESSORA ZULMIRA'), findsOneWidget);
+    expect(find.text('CAXIAS DO SUL'), findsOneWidget);
+    expect(find.text('95110-151'), findsOneWidget);
+    expect(find.text('A consulta não trouxe registros.'), findsNothing);
+  });
 }
