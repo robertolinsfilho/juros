@@ -289,20 +289,31 @@ class AuthApi {
   }
 
   /// Abre o checkout de uma consulta. A busca só roda depois que o Mercado Pago confirma.
-  Future<({int id, String checkoutUrl})> startConsulta(
+  /// Com [teste], o admin recebe a ficha de exemplo sem checkout e sem crédito.
+  Future<({int id, String checkoutUrl, ConsultaRecord? consulta})> startConsulta(
     String token, {
     required String slug,
     required String document,
     required String searchType,
+    bool teste = false,
   }) async {
-    final json = await _send('POST', '/api/consultas', token: token, body: {
-      'slug': slug,
-      'document': document,
-      'search_type': searchType,
-    });
+    final json = await _send(
+      'POST',
+      '/api/consultas',
+      token: token,
+      timeout: teste ? const Duration(seconds: 55) : const Duration(seconds: 20),
+      body: {
+        'slug': slug,
+        'document': document,
+        'search_type': searchType,
+        if (teste) 'teste': true,
+      },
+    );
+    final raw = json['consulta'];
     return (
       id: (json['id'] as num?)?.toInt() ?? 0,
       checkoutUrl: json['checkout_url'] as String? ?? '',
+      consulta: raw is Map<String, dynamic> ? ConsultaRecord.fromJson(raw) : null,
     );
   }
 

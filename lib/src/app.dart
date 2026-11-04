@@ -198,7 +198,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
       1 => CollectionsPage(repo: widget.repo),
       2 => ClientsPage(repo: widget.repo),
       3 => LoansPage(repo: widget.repo),
-      10 => ConsultasPage(auth: auth, token: token),
+      10 => ConsultasPage(auth: auth, token: token, admin: current.isAdmin),
       4 => CashPage(repo: widget.repo),
       5 => ReportsPage(repo: widget.repo),
       6 => TrashPage(repo: widget.repo),

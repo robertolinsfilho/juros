@@ -569,6 +569,16 @@ def cnpj_ok(digits):
     return dv(digits[:12], first) == int(digits[12]) and dv(digits[:13], second) == int(digits[13])
 
 
+def _teste_document(search_type):
+    """Documento de exemplo. A fonte devolve a ficha de amostra e não cobra."""
+    return {
+        "cpf": "11144477735",
+        "cnpj": "37142922000143",
+        "telefone": "11987654321",
+        "email": "teste@example.com",
+    }.get(str(search_type or "").strip().lower())
+
+
 def prepare_consulta(slug, document, search_type):
     """Confere o produto e o documento. Não fala com o fornecedor."""
     item = CONSULTAS.get(str(slug or "").strip())
@@ -690,14 +700,14 @@ def consulta_payload(loaded):
     return None
 
 
-def run_consulta(slug, search_type, document):
+def run_consulta(slug, search_type, document, homolog=False):
     """Busca o dossiê na APIBrasil. Uma falha passageira da fonte é tentada de novo."""
     last = None
     for attempt in range(3):
         if attempt:
             time.sleep(2)
         try:
-            return _consulta_once(slug, search_type, document)
+            return _consulta_once(slug, search_type, document, homolog=homolog)
         except ConsultaError as error:
             last = error
             if not error.transient or attempt == 2:
@@ -706,13 +716,15 @@ def run_consulta(slug, search_type, document):
     raise last
 
 
-def _consulta_once(slug, search_type, document):
+def _consulta_once(slug, search_type, document, homolog=False):
     """Uma chamada ao fornecedor. O token fica só na variável de ambiente."""
     call = CONSULTAS[slug]["calls"][search_type]
     token = consulta_token()
     if not token:
         raise ConsultaError("As consultas ainda não estão ligadas ao fornecedor.", retry=True)
     payload = {"tipo": call["tipo"], call["field"]: document}
+    if homolog:
+        payload["homolog"] = True
     request = urllib.request.Request(
         CONSULTA_API + call["path"],
         data=json.dumps(payload).encode(),
@@ -787,7 +799,12 @@ def finish_consulta(conn, row):
         return
     conn.commit()
     try:
-        data = run_consulta(row["type_slug"], row["search_type"], row["document"])
+        data = run_consulta(
+            row["type_slug"],
+            row["search_type"],
+            row["document"],
+            homolog=str(row["mp_id"] or "").startswith("teste-"),
+        )
     except ConsultaError as error:
         status = "paga" if error.retry else "falha"
         conn.execute(
@@ -1913,9 +1930,19 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def _consulta_create(self, conn, actor, data):
-        prepared, message = prepare_consulta(data.get("slug"), data.get("document"), data.get("search_type"))
+        teste = data.get("teste") is True
+        document = data.get("document")
+        if teste:
+            if actor["role"] != "admin":
+                self._send(403, {"error": "Só um administrador pode testar sem pagamento."})
+                return
+            document = _teste_document(data.get("search_type"))
+        prepared, message = prepare_consulta(data.get("slug"), document, data.get("search_type"))
         if prepared is None:
             self._send(400, {"error": message})
+            return
+        if teste:
+            self._consulta_teste(conn, actor, prepared)
             return
         if not consulta_token():
             self._send(503, {"error": "As consultas ainda não estão ligadas ao fornecedor. O pagamento não foi aberto."})
@@ -1948,6 +1975,38 @@ class Handler(BaseHTTPRequestHandler):
             self._send(502, {"error": "O Mercado Pago não devolveu o checkout."})
             return
         self._send(200, {"id": consult_id, "checkout_url": link})
+
+    def _consulta_teste(self, conn, actor, prepared):
+        if not consulta_token():
+            self._send(503, {"error": "As consultas ainda não estão ligadas ao fornecedor."})
+            return
+        now = int(time.time())
+        cur = conn.execute(
+            """
+            INSERT INTO consultations(user_id, type_slug, search_type, document, amount_cents, created_at)
+            VALUES (?, ?, ?, ?, 0, ?)
+            """,
+            (actor["id"], prepared["slug"], prepared["search_type"], prepared["document"], now),
+        )
+        consult_id = cur.lastrowid
+        conn.execute(
+            """
+            UPDATE consultations
+            SET status = 'paga', mp_id = ?, paid_at = ?
+            WHERE id = ?
+            """,
+            (f"teste-{consult_id}", now, consult_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM consultations WHERE id = ?", (consult_id,)).fetchone()
+        finish_consulta(conn, row)
+        row = conn.execute("SELECT * FROM consultations WHERE id = ?", (consult_id,)).fetchone()
+        self._send(200, {
+            "id": consult_id,
+            "checkout_url": "",
+            "teste": True,
+            "consulta": consulta_row(row, with_result=True),
+        })
 
     def _consulta_retry(self, conn, actor, consult_id):
         row = conn.execute(

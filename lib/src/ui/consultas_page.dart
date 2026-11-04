@@ -11,10 +11,11 @@ import '../theme.dart';
 import 'widgets.dart';
 
 class ConsultasPage extends StatefulWidget {
-  const ConsultasPage({super.key, required this.auth, required this.token});
+  const ConsultasPage({super.key, required this.auth, required this.token, this.admin = false});
 
   final AuthApi auth;
   final String token;
+  final bool admin;
 
   @override
   State<ConsultasPage> createState() => _ConsultasPageState();
@@ -26,6 +27,8 @@ class _ConsultasPageState extends State<ConsultasPage> {
   bool loading = true;
   int tab = 0;
   int? retryingId;
+  bool testing = false;
+  List<String> testLines = [];
 
   @override
   void initState() {
@@ -89,6 +92,47 @@ class _ConsultasPageState extends State<ConsultasPage> {
     }
   }
 
+  Future<void> testAll() async {
+    final current = board;
+    if (current == null || testing) return;
+    setState(() {
+      testing = true;
+      testLines = ['Teste sem cobrança. A fonte devolve um exemplo e o Mercado Pago não abre.'];
+    });
+    for (final product in current.products) {
+      for (final input in product.inputs) {
+        if (!mounted) return;
+        setState(() => testLines = [...testLines, '${product.title} · ${input.label}: buscando...']);
+        try {
+          final started = await widget.auth.startConsulta(
+            widget.token,
+            slug: product.slug,
+            document: '0',
+            searchType: input.id,
+            teste: true,
+          );
+          final record = started.consulta;
+          final line = record == null
+              ? '${product.title} · ${input.label}: sem resposta'
+              : record.done
+              ? '${product.title} · ${input.label}: exemplo recebido'
+              : '${product.title} · ${input.label}: ${record.error.isEmpty ? record.statusLabel : record.error}';
+          if (!mounted) return;
+          setState(() => testLines = [...testLines.sublist(0, testLines.length - 1), line]);
+        } on AuthException catch (error) {
+          if (!mounted) return;
+          setState(() => testLines = [
+            ...testLines.sublist(0, testLines.length - 1),
+            '${product.title} · ${input.label}: ${error.message}',
+          ]);
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() => testing = false);
+    await load();
+  }
+
   Future<void> openRecord(ConsultaRecord record) async {
     try {
       final fresh = await widget.auth.consulta(widget.token, record.id);
@@ -124,12 +168,26 @@ class _ConsultasPageState extends State<ConsultasPage> {
               ),
             ),
             if (current != null)
-              TextButton(
-                onPressed: () => setState(() => tab = tab == 0 ? 1 : 0),
-                child: Text(tab == 0 ? 'Histórico' : 'Marketplace'),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (widget.admin)
+                    TextButton(
+                      onPressed: testing ? null : testAll,
+                      child: Text(testing ? 'Testando...' : 'Testar todas sem cobrança'),
+                    ),
+                  TextButton(
+                    onPressed: () => setState(() => tab = tab == 0 ? 1 : 0),
+                    child: Text(tab == 0 ? 'Histórico' : 'Marketplace'),
+                  ),
+                ],
               ),
           ],
         ),
+        if (testLines.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _Notice(testLines.join('\n')),
+        ],
         const SizedBox(height: 16),
         if (loading) const LinearProgressIndicator(),
         if (error != null) ...[
