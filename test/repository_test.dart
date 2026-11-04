@@ -133,6 +133,63 @@ void main() {
     expect(repo.dueReminders(DateTime(2026, 11, 6)), isEmpty);
   });
 
+  test('o lembrete marca um dia sem mudar o vencimento e entra no calendário', () {
+    final repo = Repo(sqlite3.openInMemory(), ':memory:');
+    addTearDown(repo.close);
+    final clientId = repo.saveClient(name: 'Almir', document: '', phone: '86999999999', zip: '', address: '', workAddress: '');
+    final loanId = repo.createLoan(
+      LoanDraft(
+        clientId: clientId,
+        principalCents: 30000,
+        rateBps: 0,
+        rateMode: RateMode.total,
+        contractMode: ContractMode.amortizacao,
+        frequency: Frequency.mensal,
+        intervalDays: 0,
+        count: 1,
+        contractDate: DateTime(2026, 10, 20),
+        skipSaturday: false,
+        skipSunday: false,
+        skipHoliday: false,
+        lateMode: 'sem_mora',
+        latePercentBps: 0,
+        lateDailyCents: 0,
+        lateFixedCents: 0,
+        notes: '',
+      ),
+    );
+    final item = repo.installmentsOf(loanId).single;
+    expect(item.dueDate, '2026-11-20');
+    expect(item.promiseDate, isNull);
+
+    repo.setPromiseDate(item.id, '2026-11-08');
+    final marked = repo.installmentsOf(loanId).single;
+    expect(marked.dueDate, '2026-11-20');
+    expect(marked.promiseDate, '2026-11-08');
+    expect(repo.promiseDaysInMonth(DateTime(2026, 11, 1)), {8});
+    expect(repo.dueOn(DateTime(2026, 11, 8)).map((row) => row.id), [item.id]);
+    expect(repo.dueOn(DateTime(2026, 11, 20)).map((row) => row.id), [item.id]);
+    final amounts = repo.dueAmountsInMonth(DateTime(2026, 11, 1), DateTime(2026, 11, 4));
+    expect(amounts[8], isNull);
+    expect(amounts[20], 30000);
+
+    expect(repo.paymentAlerts(DateTime(2026, 11, 7)).upcoming, isEmpty);
+    expect(repo.paymentAlerts(DateTime(2026, 11, 8)).upcoming.map((row) => row.id), [item.id]);
+    expect(repo.paymentAlerts(DateTime(2026, 11, 19)).upcoming.map((row) => row.id), [item.id]);
+
+    final snap = repo.accountSnapshot();
+    expect((snap['installments'] as List).single['promise_date'], '2026-11-08');
+    repo.setPromiseDate(item.id, null);
+    expect(repo.installmentsOf(loanId).single.promiseDate, isNull);
+    expect(repo.dueOn(DateTime(2026, 11, 8)), isEmpty);
+    repo.replaceAccount(snap);
+    expect(repo.installmentsOf(loanId).single.promiseDate, '2026-11-08');
+
+    repo.payInstallment(item.id, DateTime(2026, 11, 8));
+    expect(repo.promiseDaysInMonth(DateTime(2026, 11, 1)), isEmpty);
+    expect(repo.dueOn(DateTime(2026, 11, 8)), isEmpty);
+  });
+
   test('a cópia da conta volta o cliente e deixa o token nesta tela', () {
     final repo = Repo(sqlite3.openInMemory(), ':memory:');
     addTearDown(repo.close);

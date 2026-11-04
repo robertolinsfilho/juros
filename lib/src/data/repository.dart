@@ -111,6 +111,7 @@ class InstallmentRecord {
     required this.number,
     required this.count,
     required this.dueDate,
+    required this.promiseDate,
     required this.principalCents,
     required this.interestCents,
     required this.lateCents,
@@ -129,6 +130,7 @@ class InstallmentRecord {
   final int number;
   final int count;
   final String dueDate;
+  final String? promiseDate;
   final int principalCents;
   final int interestCents;
   final int lateCents;
@@ -379,6 +381,7 @@ class Repo {
     _addColumn('loans', 'pix_key', "TEXT NOT NULL DEFAULT ''");
     _addColumn('loans', 'late_explain', 'INTEGER NOT NULL DEFAULT 0');
     _addColumn('loans', 'late_explain_text', "TEXT NOT NULL DEFAULT ''");
+    _addColumn('installments', 'promise_date', 'TEXT');
   }
 
   void _addColumn(String table, String name, String definition) {
@@ -1157,7 +1160,45 @@ class Repo {
     );
   }
 
-  List<InstallmentRecord> dueOn(DateTime day) => _dueBetween(isoDate(day), isoDate(day));
+  List<InstallmentRecord> dueOn(DateTime day) {
+    final date = isoDate(day);
+    final due = _dueBetween(date, date);
+    final seen = {for (final item in due) item.id};
+    return [
+      ...due,
+      for (final item in _openWhere('i.promise_date = ?', [date]))
+        if (!seen.contains(item.id)) item,
+    ];
+  }
+
+  /// Dia do mês em que existe um lembrete de cobrança ainda em aberto.
+  Set<int> promiseDaysInMonth(DateTime month) {
+    final start = isoDate(DateTime(month.year, month.month, 1));
+    final end = isoDate(DateTime(month.year, month.month + 1, 0));
+    final rows = db.select(
+      '''
+      SELECT DISTINCT i.promise_date AS day
+      FROM installments i
+      JOIN loans l ON l.id = i.loan_id
+      WHERE l.deleted_at IS NULL AND l.status = 'aberto'
+        AND i.paid_at IS NULL AND i.status = 'aberta'
+        AND i.promise_date >= ? AND i.promise_date <= ?
+      ''',
+      [start, end],
+    );
+    return {for (final row in rows) parseIsoDate(row['day'] as String).day};
+  }
+
+  /// Marca o dia do lembrete. Não altera o vencimento. Vazio tira o lembrete.
+  void setPromiseDate(int installmentId, String? day) {
+    db.execute(
+      '''
+      UPDATE installments SET promise_date = ?
+      WHERE id = ? AND paid_at IS NULL AND status = 'aberta'
+      ''',
+      [day, installmentId],
+    );
+  }
 
   /// Quem ainda deve uma parcela vencida, e quem vence até o prazo do aviso.
   ({List<InstallmentRecord> unpaid, List<InstallmentRecord> upcoming}) paymentAlerts(DateTime today) {
@@ -1166,12 +1207,18 @@ class Repo {
     final items = _dueBetween('0001-01-01', isoDate(end));
     final unpaid = <InstallmentRecord>[];
     final upcoming = <InstallmentRecord>[];
+    final seen = <int>{};
     for (final item in items) {
+      seen.add(item.id);
       if (parseIsoDate(item.dueDate).isBefore(day)) {
         unpaid.add(item);
       } else {
         upcoming.add(item);
       }
+    }
+    for (final item in _openWhere('i.promise_date IS NOT NULL AND i.promise_date <= ?', [isoDate(day)])) {
+      if (seen.contains(item.id)) continue;
+      upcoming.add(item);
     }
     return (unpaid: unpaid, upcoming: upcoming);
   }
@@ -1432,7 +1479,7 @@ class Repo {
     }
   }
 
-  List<InstallmentRecord> _dueBetween(String start, String end) {
+  List<InstallmentRecord> _openWhere(String extra, List<Object?> params) {
     final rows = db.select(
       '''
       SELECT i.*, l.installment_count AS count, l.late_mode, l.late_percent_bps,
@@ -1442,12 +1489,16 @@ class Repo {
       JOIN clients c ON c.id = l.client_id
       WHERE l.deleted_at IS NULL AND l.status = 'aberto'
         AND i.paid_at IS NULL AND i.status = 'aberta'
-        AND i.due_date >= ? AND i.due_date <= ?
+        AND $extra
       ORDER BY i.due_date, c.name COLLATE NOCASE
       ''',
-      [start, end],
+      params,
     );
     return [for (final row in rows) _installment(row)];
+  }
+
+  List<InstallmentRecord> _dueBetween(String start, String end) {
+    return _openWhere('i.due_date >= ? AND i.due_date <= ?', [start, end]);
   }
 
   List<WeekBucket> _weeks(DateTime today) {
@@ -1565,6 +1616,7 @@ class Repo {
       number: row['number'] as int,
       count: row['count'] as int,
       dueDate: row['due_date'] as String,
+      promiseDate: row['promise_date'] as String?,
       principalCents: row['principal_cents'] as int,
       interestCents: row['interest_cents'] as int,
       lateCents: row['late_cents'] as int,

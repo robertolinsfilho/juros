@@ -84,6 +84,17 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (mounted) changed();
   }
 
+  Future<void> details(InstallmentRecord item) {
+    return showChargeDetails(context, widget.repo, item);
+  }
+
+  Future<void> promise(InstallmentRecord item) async {
+    final picked = await showPromisePicker(context, item);
+    if (picked == null || !mounted) return;
+    widget.repo.setPromiseDate(item.id, picked.isEmpty ? null : picked);
+    changed();
+  }
+
   Future<void> enableNotices() async {
     final shown = await deliverPaymentNotices(widget.repo, ask: true);
     final next = await noticePermission();
@@ -99,6 +110,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     final today = DateTime.now();
     final pulse = widget.repo.monthPulse(selected);
     final amounts = widget.repo.dueAmountsInMonth(cursor, today);
+    final promises = widget.repo.promiseDaysInMonth(cursor);
     final due = widget.repo.dueOn(selected);
     final dueTotal = due.fold<int>(0, (sum, item) => sum + item.dueCents(today));
     final alerts = widget.repo.paymentAlerts(today);
@@ -122,6 +134,8 @@ class _CollectionsPageState extends State<CollectionsPage> {
           permission: permission,
           onCharge: charge,
           onReceive: receive,
+          onDetails: details,
+          onPromise: promise,
           onEnable: enableNotices,
         ),
         const SizedBox(height: 16),
@@ -167,6 +181,11 @@ class _CollectionsPageState extends State<CollectionsPage> {
                     IconButton(onPressed: () => shift(1), icon: const Icon(Icons.chevron_right)),
                   ],
                 ),
+                const Text(
+                  'O ponto amarelo é o dia marcado para avisar desta cobrança. O vencimento continua no dia original.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
                 Row(
                   children: [
                     for (final name in names)
@@ -185,6 +204,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
                       _DayCell(
                         day: day,
                         amount: amounts[day] ?? 0,
+                        reminded: promises.contains(day),
                         overdue: DateTime(cursor.year, cursor.month, day).isBefore(dateOnly(today)),
                         selected: selected.year == cursor.year && selected.month == cursor.month && selected.day == day,
                         onTap: () => setState(() => selected = DateTime(cursor.year, cursor.month, day)),
@@ -210,12 +230,15 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   for (final item in due)
                     RecordTile(
                       title: item.clientName,
-                      subtitle: _dueSubtitle(item, today),
-                      actions: [
-                        Text(fmtMoney(item.dueCents(today))),
-                        TextButton(onPressed: () => charge(item), child: const Text('Cobrar')),
-                        FilledButton(onPressed: () => receive(item), child: const Text('Receber')),
-                      ],
+                      subtitle: _dueSubtitle(item, today, selected: isoDate(selected)),
+                      actions: _chargeActions(
+                        item: item,
+                        today: today,
+                        onCharge: () => charge(item),
+                        onReceive: () => receive(item),
+                        onDetails: () => details(item),
+                        onPromise: () => promise(item),
+                      ),
                     ),
               ],
             ),
@@ -233,6 +256,8 @@ class _Unpaid extends StatelessWidget {
     required this.permission,
     required this.onCharge,
     required this.onReceive,
+    required this.onDetails,
+    required this.onPromise,
     required this.onEnable,
   });
 
@@ -241,6 +266,8 @@ class _Unpaid extends StatelessWidget {
   final String permission;
   final ValueChanged<InstallmentRecord> onCharge;
   final ValueChanged<InstallmentRecord> onReceive;
+  final ValueChanged<InstallmentRecord> onDetails;
+  final ValueChanged<InstallmentRecord> onPromise;
   final VoidCallback onEnable;
 
   @override
@@ -269,11 +296,15 @@ class _Unpaid extends StatelessWidget {
               RecordTile(
                 title: item.clientName,
                 subtitle: _dueSubtitle(item, today),
-                actions: [
-                  Text(fmtMoney(item.dueCents(today)), style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w700)),
-                  TextButton(onPressed: () => onCharge(item), child: const Text('Cobrar')),
-                  FilledButton(onPressed: () => onReceive(item), child: const Text('Receber')),
-                ],
+                actions: _chargeActions(
+                  item: item,
+                  today: today,
+                  moneyColor: AppColors.red,
+                  onCharge: () => onCharge(item),
+                  onReceive: () => onReceive(item),
+                  onDetails: () => onDetails(item),
+                  onPromise: () => onPromise(item),
+                ),
               ),
         ],
       ),
@@ -342,6 +373,7 @@ class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
     required this.amount,
+    required this.reminded,
     required this.overdue,
     required this.selected,
     required this.onTap,
@@ -349,6 +381,7 @@ class _DayCell extends StatelessWidget {
 
   final int day;
   final int amount;
+  final bool reminded;
   final bool overdue;
   final bool selected;
   final VoidCallback onTap;
@@ -356,8 +389,12 @@ class _DayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = amount <= 0 ? AppColors.muted : overdue ? AppColors.red : AppColors.amber;
+    final tip = [
+      if (amount > 0) fmtMoney(amount),
+      if (reminded) 'Lembrete neste dia',
+    ].join(' · ');
     return Tooltip(
-      message: amount > 0 ? fmtMoney(amount) : '',
+      message: tip,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
@@ -377,6 +414,13 @@ class _DayCell extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700),
                 ),
+              if (reminded)
+                Container(
+                  width: 7,
+                  height: 7,
+                  margin: const EdgeInsets.only(top: 2),
+                  decoration: const BoxDecoration(color: AppColors.amber, shape: BoxShape.circle),
+                ),
             ],
           ),
         ),
@@ -385,11 +429,195 @@ class _DayCell extends StatelessWidget {
   }
 }
 
-String _dueSubtitle(InstallmentRecord item, DateTime today) {
+String _dueSubtitle(InstallmentRecord item, DateTime today, {String? selected}) {
   final late = item.liveLateCents(today);
   final base = 'Parcela ${item.number}/${item.count} · ${fmtDateIso(item.dueDate)}';
-  if (late <= 0) return base;
-  return '$base · parcela ${fmtMoney(item.faceCents)} + mora ${fmtMoney(late)}';
+  final money = late <= 0 ? base : '$base · parcela ${fmtMoney(item.faceCents)} + mora ${fmtMoney(late)}';
+  final promise = item.promiseDate;
+  if (promise == null || promise != selected || promise == item.dueDate) return money;
+  return '$money · lembrete neste dia';
+}
+
+List<Widget> _chargeActions({
+  required InstallmentRecord item,
+  required DateTime today,
+  required VoidCallback onCharge,
+  required VoidCallback onReceive,
+  required VoidCallback onDetails,
+  required VoidCallback onPromise,
+  Color? moneyColor,
+}) {
+  return [
+    Text(
+      fmtMoney(item.dueCents(today)),
+      style: TextStyle(color: moneyColor, fontWeight: moneyColor == null ? null : FontWeight.w700),
+    ),
+    TextButton(onPressed: onCharge, child: const Text('Cobrar')),
+    FilledButton(onPressed: onReceive, child: const Text('Receber')),
+    _PromiseButton(item: item, today: today, onPressed: onPromise),
+    IconButton(
+      tooltip: 'Ver detalhes',
+      visualDensity: VisualDensity.compact,
+      onPressed: onDetails,
+      icon: const Icon(Icons.visibility_outlined, size: 20),
+    ),
+  ];
+}
+
+class _PromiseButton extends StatelessWidget {
+  const _PromiseButton({required this.item, required this.today, required this.onPressed});
+
+  final InstallmentRecord item;
+  final DateTime today;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final promise = item.promiseDate;
+    final expired = promise != null && parseIsoDate(promise).isBefore(dateOnly(today));
+    final color = promise == null ? AppColors.muted : expired ? AppColors.red : AppColors.amber;
+    final when = promise == null ? null : _dayMonth(promise);
+    final tip = promise == null
+        ? 'Definir lembrete'
+        : expired
+        ? 'Lembrete vencido: $when'
+        : 'Lembrete: $when';
+    return Tooltip(
+      message: tip,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          foregroundColor: color,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(promise == null ? Icons.notifications_none : Icons.notifications_active, size: 18, color: color),
+            if (when != null) ...[
+              const SizedBox(width: 4),
+              Text(when, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _dayMonth(String iso) {
+  final date = parseIsoDate(iso);
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day/$month';
+}
+
+/// Dia escolhido para o lembrete. Vazio remove. Nulo cancela.
+Future<String?> showPromisePicker(BuildContext context, InstallmentRecord item) {
+  final due = parseIsoDate(item.dueDate);
+  final current = item.promiseDate == null ? due : parseIsoDate(item.promiseDate!);
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Lembrete · Parcela ${item.number}'),
+      content: SizedBox(
+        width: 320,
+        height: 430,
+        child: Column(
+          children: [
+            const Text('Que dia o cliente prometeu pagar?', textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text(
+              'Vence em ${fmtDateIso(item.dueDate)} — o lembrete não muda o vencimento.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: CalendarDatePicker(
+                initialDate: current,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+                onDateChanged: (value) => Navigator.pop(context, isoDate(value)),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (item.promiseDate != null)
+          TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            child: const Text('Remover lembrete', style: TextStyle(color: AppColors.red)),
+          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+      ],
+    ),
+  );
+}
+
+Future<void> showChargeDetails(BuildContext context, Repo repo, InstallmentRecord item) {
+  final today = DateTime.now();
+  final loan = repo.loanById(item.loanId, today);
+  final parts = repo.installmentsOf(item.loanId);
+  final late = item.liveLateCents(today);
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(item.clientName),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Parcela ${item.number}/${item.count}'),
+              const SizedBox(height: 4),
+              Text('Vencimento ${fmtDateIso(item.dueDate)}'),
+              const SizedBox(height: 4),
+              Text('Em aberto ${fmtMoney(item.dueCents(today))}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              if (late > 0) ...[
+                const SizedBox(height: 4),
+                Text('Parcela ${fmtMoney(item.faceCents)} + mora ${fmtMoney(late)}'),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                item.promiseDate == null
+                    ? 'Sem lembrete'
+                    : 'Lembrete ${fmtDateIso(item.promiseDate!)} — não muda o vencimento',
+              ),
+              if (item.clientPhone.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(item.clientPhone),
+              ],
+              if (loan != null) ...[
+                const SizedBox(height: 4),
+                Text(loan.typeLabel, style: const TextStyle(color: AppColors.muted)),
+              ],
+              const SizedBox(height: 16),
+              const Text('Parcelas deste contrato', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              for (final part in parts)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${part.number}/${part.count} · ${fmtDateIso(part.dueDate)} · ${part.paidAt != null ? 'pago' : part.isOpen ? fmtMoney(part.dueCents(today)) : part.status}',
+                    style: TextStyle(
+                      color: part.id == item.id ? AppColors.text : AppColors.muted,
+                      fontWeight: part.id == item.id ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
+      ],
+    ),
+  );
 }
 
 String _shortMoney(int cents) {

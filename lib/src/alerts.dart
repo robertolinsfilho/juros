@@ -4,7 +4,9 @@ import 'notify.dart';
 
 String noticeLine(InstallmentRecord item, DateTime today, {required bool overdue}) {
   final money = fmtMoney(item.dueCents(today));
-  if (!overdue) return '${item.clientName} · $money · vence ${fmtDateIso(item.dueDate)}';
+  final promise = item.promiseDate;
+  final mark = promise == null ? '' : ' · lembrete ${fmtDateIso(promise)}';
+  if (!overdue) return '${item.clientName} · $money · vence ${fmtDateIso(item.dueDate)}$mark';
   final days = dateOnly(today).difference(parseIsoDate(item.dueDate)).inDays;
   final late = days == 1 ? '1 dia de atraso' : '$days dias de atraso';
   return '${item.clientName} · $money · $late';
