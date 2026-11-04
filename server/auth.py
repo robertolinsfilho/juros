@@ -649,6 +649,23 @@ class ConsultaError(Exception):
         self.retry = retry
 
 
+def _consulta_http_message(error):
+    """Só a frase do fornecedor. O corpo também traz a conta da API e não pode ir para o cliente."""
+    try:
+        raw = error.read().decode("utf-8", "replace")[:500]
+        loaded = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError, AttributeError):
+        return ""
+    if not isinstance(loaded, dict):
+        return ""
+    return " ".join(str(loaded.get("message") or "").split())
+
+
+def _saldo(text):
+    lowered = text.lower()
+    return "saldo" in lowered or "insuficiente" in lowered
+
+
 def provider_message(text):
     clean = " ".join(str(text or "").split())
     lowered = clean.lower()
@@ -689,20 +706,23 @@ def run_consulta(slug, search_type, document):
         with urllib.request.urlopen(request, timeout=40) as response:
             loaded = json.loads(response.read().decode())
     except urllib.error.HTTPError as error:
+        detail = _consulta_http_message(error)
         print(f"consulta http {error.code}", flush=True)
-        if error.code == 402:
+        if error.code == 402 or _saldo(detail):
             raise ConsultaError("O saldo do fornecedor acabou. Tente de novo sem pagar outra vez.", retry=True) from error
         if error.code == 404:
             raise ConsultaError("Nenhum dado encontrado para esta consulta.") from error
-        if error.code in (408, 429, 500, 502, 503, 504):
+        if error.code in (408, 429, 502, 503, 504):
             raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
+        if error.code == 500:
+            raise ConsultaError("A fonte não conseguiu concluir esta consulta. Tente de novo sem pagar outra vez.", retry=True) from error
         raise ConsultaError("A consulta não foi concluída.") from error
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
         print(f"consulta rede {error}", flush=True)
         raise ConsultaError("A fonte demorou para responder. Tente de novo sem pagar outra vez.", retry=True) from error
     if not isinstance(loaded, dict) or loaded.get("error") is True:
         raw = " ".join(str(loaded.get("message") or "").split()) if isinstance(loaded, dict) else ""
-        if "saldo" in raw.lower() or "insuficiente" in raw.lower():
+        if _saldo(raw):
             raise ConsultaError("O saldo do fornecedor acabou. Tente de novo sem pagar outra vez.", retry=True)
         raise ConsultaError(provider_message(raw))
     data = consulta_payload(loaded)

@@ -74,7 +74,7 @@ class _ConsultasPageState extends State<ConsultasPage> {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
-        builder: (context) => ConsultaResultDialog(record: fresh),
+        builder: (context) => ConsultaResultDialog(auth: widget.auth, token: widget.token, record: fresh),
       );
       if (mounted) await load();
     } on AuthException catch (error) {
@@ -530,7 +530,12 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
     try {
       final next = await widget.auth.consulta(widget.token, id);
       if (!mounted) return;
-      setState(() => record = next);
+      setState(() {
+        record = next;
+        if (next.status != 'aguardando' && message != null && message!.startsWith('Checkout aberto')) {
+          message = null;
+        }
+      });
       if (next.done || next.status == 'falha' || (next.status == 'paga' && next.error.isNotEmpty)) {
         timer?.cancel();
       }
@@ -540,7 +545,10 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
   Future<void> retry() async {
     final current = record;
     if (current == null) return;
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+      if (message != null && message!.startsWith('Checkout aberto')) message = null;
+    });
     try {
       final next = await widget.auth.retryConsulta(widget.token, current.id);
       if (!mounted) return;
@@ -630,10 +638,37 @@ class _ConsultaDialogState extends State<ConsultaDialog> {
   }
 }
 
-class ConsultaResultDialog extends StatelessWidget {
-  const ConsultaResultDialog({super.key, required this.record});
+class ConsultaResultDialog extends StatefulWidget {
+  const ConsultaResultDialog({super.key, required this.auth, required this.token, required this.record});
 
+  final AuthApi auth;
+  final String token;
   final ConsultaRecord record;
+
+  @override
+  State<ConsultaResultDialog> createState() => _ConsultaResultDialogState();
+}
+
+class _ConsultaResultDialogState extends State<ConsultaResultDialog> {
+  late ConsultaRecord record = widget.record;
+  bool busy = false;
+  String? message;
+
+  Future<void> retry() async {
+    setState(() {
+      busy = true;
+      message = null;
+    });
+    try {
+      final next = await widget.auth.retryConsulta(widget.token, record.id);
+      if (!mounted) return;
+      setState(() => record = next);
+    } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -651,6 +686,14 @@ class ConsultaResultDialog extends StatelessWidget {
               Text('${record.statusLabel} · ${_maskDocument(record.document)}', style: const TextStyle(color: AppColors.muted)),
               const SizedBox(height: 16),
               if (record.done) ResultView(value: record.result) else Text(record.error.isEmpty ? record.statusLabel : record.error),
+              if (record.status == 'paga') ...[
+                const SizedBox(height: 16),
+                OutlinedButton(onPressed: busy ? null : retry, child: Text(busy ? 'Buscando...' : 'Buscar de novo')),
+              ],
+              if (message != null) ...[
+                const SizedBox(height: 16),
+                Text(message!, style: const TextStyle(color: AppColors.amber)),
+              ],
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),

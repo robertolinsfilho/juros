@@ -313,7 +313,12 @@ class AuthApi {
 
   /// Repete a busca de uma consulta já paga, sem abrir outro checkout.
   Future<ConsultaRecord> retryConsulta(String token, int id) async {
-    final json = await _send('POST', '/api/consultas/$id/buscar', token: token);
+    final json = await _send(
+      'POST',
+      '/api/consultas/$id/buscar',
+      token: token,
+      timeout: const Duration(seconds: 50),
+    );
     return ConsultaRecord.fromJson(json['consulta'] as Map<String, dynamic>);
   }
 
