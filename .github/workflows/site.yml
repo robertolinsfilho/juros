@@ -17,7 +17,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Análise e testes
+      - name: Análise e robô do site
         run: |
           flutter analyze --no-fatal-infos
           flutter test
