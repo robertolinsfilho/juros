@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'app_routes.dart';
 import 'auth/account_sync.dart';
 import 'auth/auth_api.dart';
 import 'auth/session_store.dart';
 import 'auth/settings_sync.dart';
 import 'data/repository.dart';
+import 'place.dart';
 import 'theme.dart';
 import 'ui/cash_page.dart';
 import 'ui/clients_page.dart';
@@ -27,18 +29,12 @@ import 'ui/trial_widgets.dart';
 import 'ui/trash_page.dart';
 import 'ui/users_page.dart';
 
-/// A volta do Mercado Pago abre direto na aba de consultas.
-int openingSection() {
-  final flag = Uri.base.queryParameters['consulta'];
-  if (flag == 'ok' || flag == 'pendente') return 10;
-  return 0;
-}
-
 class JurosApp extends StatefulWidget {
-  const JurosApp({super.key, required this.repo, this.auth});
+  const JurosApp({super.key, required this.repo, this.auth, this.routes});
 
   final Repo repo;
   final AuthApi? auth;
+  final AppRoutes? routes;
 
   @override
   State<JurosApp> createState() => _JurosAppState();
@@ -48,14 +44,14 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
   late final AuthApi auth = widget.auth ?? AuthApi();
   late final SettingsSync sync = SettingsSync(widget.repo, auth);
   late final AccountSync account = AccountSync(widget.repo, auth);
-  int section = openingSection();
+  late final AppRoutes routes = widget.routes ?? AppRoutes();
   late double scale = widget.repo.fontScale;
   SessionUser? user;
   String token = '';
   bool checking = true;
-  bool showLogin = false;
-  bool showSignup = false;
-  final navigatorKey = GlobalKey<NavigatorState>();
+  bool honorConsulta = true;
+  String? resumePath;
+  bool _fixScheduled = false;
 
   @override
   void initState() {
@@ -116,7 +112,7 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
   void reloadScale() => setState(() => scale = widget.repo.fontScale);
 
   Future<void> subscribe(SessionUser current) async {
-    final navContext = navigatorKey.currentContext;
+    final navContext = routes.navigatorKey.currentContext;
     if (navContext == null) return;
     await showPlansDialog(
       navContext,
@@ -129,38 +125,64 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> enter(SessionUser next, String nextToken) async {
+  int get section {
+    return sectionForLocation(
+      routes.uri.path,
+      consulta: Uri.base.queryParameters['consulta'],
+      honorConsulta: honorConsulta,
+    );
+  }
+
+  void open(String path) {
+    honorConsulta = false;
+    routes.go(Uri(path: path));
+  }
+
+  void replacePath(BuildContext context, String path) {
+    honorConsulta = false;
+    Router.neglect(context, () => routes.replace(Uri(path: path)));
+  }
+
+  void openAuth(BuildContext context, String path) {
+    final current = routes.uri.path;
+    if (!isAuthPath(current)) resumePath = current;
+    Router.navigate(context, () => routes.go(Uri(path: path)));
+  }
+
+  Future<void> enter(BuildContext context, SessionUser next, String nextToken) async {
     widget.repo.setSetting('session_token', nextToken);
     writeSession(nextToken);
     setState(() => checking = true);
     await sync.start(nextToken);
     await account.start(nextToken);
     if (!mounted) return;
+    final saved = resumePath;
+    resumePath = null;
+    final target = saved != null && trySection(saved) != null && saved != '/' ? saved : '/';
     setState(() {
       user = next;
       token = nextToken;
-      section = 0;
       scale = widget.repo.fontScale;
       checking = false;
     });
+    if (context.mounted) replacePath(context, target);
     deliverPaymentNotices(widget.repo, ask: false);
   }
 
-  Future<void> leave() async {
+  Future<void> leave(BuildContext context) async {
     await account.stop();
     await sync.stop();
     await auth.logout(token);
     writeSession('');
     widget.repo.removeSetting('session_token');
     if (!mounted) return;
+    resumePath = null;
     setState(() {
       user = null;
       token = '';
-      section = 0;
-      showLogin = false;
-      showSignup = false;
       scale = widget.repo.fontScale;
     });
+    if (context.mounted) replacePath(context, '/');
   }
 
   List<(IconData, String, int)> destinationsFor(SessionUser current) {
@@ -182,6 +204,43 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
     if (section == 9) return 9;
     final allowed = destinationsFor(current).any((item) => item.$3 == section);
     return allowed ? section : 0;
+  }
+
+  bool _needsUrlFix(SessionUser current) {
+    final path = routes.uri.path;
+    if (honorConsulta && isConsultaReturn(Uri.base.queryParameters['consulta']) && (path == '/' || path.isEmpty)) {
+      return true;
+    }
+    if (isAuthPath(path)) return true;
+    if (path != '/' && trySection(path) == null) return true;
+    if (path == '/usuarios' && !current.isAdmin) return true;
+    return false;
+  }
+
+  void _scheduleUrlFix(BuildContext context) {
+    if (_fixScheduled) return;
+    _fixScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fixScheduled = false;
+      if (!mounted || !context.mounted || user == null) return;
+      _syncUrl(context);
+    });
+  }
+
+  void _syncUrl(BuildContext context) {
+    final current = user;
+    if (current == null) return;
+    final path = routes.uri.path;
+    if (honorConsulta && isConsultaReturn(Uri.base.queryParameters['consulta'])) {
+      honorConsulta = false;
+      if (path == '/' || path.isEmpty) {
+        replacePath(context, '/consultas');
+        return;
+      }
+    }
+    if (isAuthPath(path) || (path != '/' && trySection(path) == null) || (path == '/usuarios' && !current.isAdmin)) {
+      replacePath(context, '/');
+    }
   }
 
   Widget page(SessionUser current) {
@@ -215,11 +274,8 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final current = user;
-    final alerts = current == null ? null : widget.repo.paymentAlerts(DateTime.now());
-    final alertCount = alerts == null ? 0 : alerts.unpaid.length + alerts.upcoming.length;
-    return MaterialApp(
-      navigatorKey: navigatorKey,
+    routes.pageBuilder = _page;
+    return MaterialApp.router(
       title: brandName,
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
@@ -236,45 +292,54 @@ class _JurosAppState extends State<JurosApp> with WidgetsBindingObserver {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: checking
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : current == null
-              ? (showSignup
-                  ? SignupPage(
-                      auth: auth,
-                      onBack: () => setState(() => showSignup = false),
-                      onLogin: () => setState(() {
-                        showSignup = false;
-                        showLogin = true;
-                      }),
-                    )
-                  : showLogin
-                  ? LoginPage(
-                      auth: auth,
-                      onSuccess: enter,
-                      onBack: () => setState(() => showLogin = false),
-                      onSignup: () => setState(() {
-                        showLogin = false;
-                        showSignup = true;
-                      }),
-                    )
-                  : LandingPage(
-                      onCreate: () => setState(() => showSignup = true),
-                      onLogin: () => setState(() => showLogin = true),
-                    ))
-              : current.access.blocked
-              ? _Expired(onSubscribe: () => subscribe(current), onLogout: leave)
-              : _Shell(
-                  user: current,
-                  section: visibleSection(current),
-                  destinations: destinationsFor(current),
-                  alertCount: alertCount,
-                  onSelected: (id) => setState(() => section = id),
-                  onProfile: () => setState(() => section = 9),
-                  onLogout: leave,
-                  onSubscribe: () => subscribe(current),
-                  child: page(current),
-                ),
+      routerDelegate: routes,
+      routeInformationParser: const AppPathParser(),
+    );
+  }
+
+  Widget _page(BuildContext context) {
+    final current = user;
+    if (checking) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (current == null) {
+      final path = routes.uri.path;
+      if (path == '/criar') {
+        return SignupPage(
+          auth: auth,
+          onBack: () => replacePath(context, resumePath ?? '/'),
+          onLogin: () => open('/entrar'),
+        );
+      }
+      if (path == '/entrar') {
+        return LoginPage(
+          auth: auth,
+          onSuccess: (next, nextToken) => enter(context, next, nextToken),
+          onBack: () => replacePath(context, resumePath ?? '/'),
+          onSignup: () => open('/criar'),
+        );
+      }
+      return LandingPage(
+        onCreate: () => openAuth(context, '/criar'),
+        onLogin: () => openAuth(context, '/entrar'),
+      );
+    }
+    if (current.access.blocked) {
+      return _Expired(onSubscribe: () => subscribe(current), onLogout: () => leave(context));
+    }
+    if (_needsUrlFix(current)) _scheduleUrlFix(context);
+    final alerts = widget.repo.paymentAlerts(DateTime.now());
+    final alertCount = alerts.unpaid.length + alerts.upcoming.length;
+    return _Shell(
+      user: current,
+      section: visibleSection(current),
+      destinations: destinationsFor(current),
+      alertCount: alertCount,
+      onSelected: (id) => open(pathForSection(id)),
+      onProfile: () => open('/perfil'),
+      onLogout: () => leave(context),
+      onSubscribe: () => subscribe(current),
+      child: page(current),
     );
   }
 }
