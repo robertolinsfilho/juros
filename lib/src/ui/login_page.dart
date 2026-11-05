@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_api.dart';
+import '../auth/login_store.dart';
 import '../theme.dart';
 import 'brand.dart';
 import 'widgets.dart';
@@ -21,10 +22,40 @@ class _LoginPageState extends State<LoginPage> {
   final username = TextEditingController();
   final password = TextEditingController();
   bool busy = false;
+  bool remember = true;
   String? error;
 
   @override
+  void initState() {
+    super.initState();
+    final saved = readSavedLogin();
+    remember = saved.remember;
+    if (saved.user.isNotEmpty) {
+      username.text = saved.user;
+      password.text = saved.password;
+    }
+    username.addListener(persist);
+    password.addListener(persist);
+  }
+
+  void persist() {
+    if (!remember) return;
+    writeSavedLogin(username.text.trim(), password.text, remember: true);
+  }
+
+  void setRemember(bool value) {
+    setState(() => remember = value);
+    if (value) {
+      persist();
+      return;
+    }
+    writeSavedLogin('', '', remember: false);
+  }
+
+  @override
   void dispose() {
+    username.removeListener(persist);
+    password.removeListener(persist);
     username.dispose();
     password.dispose();
     super.dispose();
@@ -119,20 +150,59 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(color: AppColors.muted),
                         ),
                         const SizedBox(height: 16),
-                        TextField(
-                          controller: username,
-                          autofocus: true,
-                          textInputAction: TextInputAction.next,
-                          autocorrect: false,
-                          decoration: const InputDecoration(labelText: 'Usuário'),
+                        AutofillGroup(
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: username,
+                                autofocus: true,
+                                textInputAction: TextInputAction.next,
+                                autocorrect: false,
+                                autofillHints: const [AutofillHints.username],
+                                decoration: const InputDecoration(labelText: 'Usuário'),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: password,
+                                obscureText: true,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.password],
+                                onSubmitted: (_) => submit(),
+                                decoration: const InputDecoration(labelText: 'Senha'),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: password,
-                          obscureText: true,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => submit(),
-                          decoration: const InputDecoration(labelText: 'Senha'),
+                        Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            onTap: busy ? null : () => setRemember(!remember),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Checkbox(
+                                  value: remember,
+                                  onChanged: busy ? null : (value) => setRemember(value ?? false),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: const [
+                                        Text('Lembrar neste aparelho'),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          'Na próxima entrada, usuário e senha já aparecem preenchidos.',
+                                          style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         if (error != null) ...[
                           const SizedBox(height: 16),

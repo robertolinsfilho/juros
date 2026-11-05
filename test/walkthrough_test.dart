@@ -7,12 +7,14 @@ import 'package:http/testing.dart';
 import 'package:juros/src/app.dart';
 import 'package:juros/src/app_routes.dart';
 import 'package:juros/src/auth/auth_api.dart';
+import 'package:juros/src/auth/login_store.dart';
 import 'package:juros/src/data/repository.dart';
 import 'package:juros/src/domain/schedule.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   testWidgets('o robô percorre o site, volta e recarrega cada tela', (tester) async {
+    resetSavedLogin();
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -149,6 +151,59 @@ void main() {
     expect(find.text('Novo usuário'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('o robô guarda o login e entra de novo sem digitar', (tester) async {
+    resetSavedLogin();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = Repo(sqlite3.openInMemory(), ':memory:');
+    addTearDown(repo.close);
+    final routes = AppRoutes();
+    final api = AuthApi(client: MockClient((request) => _api(request, role: 'comum')));
+
+    await tester.pumpWidget(JurosApp(repo: repo, auth: api, routes: routes));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Entrar'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+    await tester.enterText(find.byType(TextField).at(0), 'operador');
+    await tester.enterText(find.byType(TextField).at(1), 'segredo');
+    await tester.tap(find.text('Voltar ao início'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Entrar'));
+    await tester.pumpAndSettle();
+    expect(_field(tester, 0), 'operador');
+    expect(_field(tester, 1), 'segredo');
+    await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resumo da operação'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Sair'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Entrar'));
+    await tester.pumpAndSettle();
+    expect(_field(tester, 0), 'operador');
+    expect(_field(tester, 1), 'segredo');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Voltar ao início'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Entrar'));
+    await tester.pumpAndSettle();
+    expect(_field(tester, 0), isEmpty);
+    expect(_field(tester, 1), isEmpty);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+
+    tester.view.physicalSize = const Size(390, 800);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+}
+
+String _field(WidgetTester tester, int index) {
+  return tester.widget<TextField>(find.byType(TextField).at(index)).controller!.text;
 }
 
 Future<http.Response> _api(http.Request request, {required String role}) async {
