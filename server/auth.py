@@ -494,6 +494,17 @@ CONSULTAS = {
             "cnpj": {"path": "/consulta/cnpj/credits", "tipo": "pessoa-juridica-protesto", "field": "cnpj"},
         },
     },
+    "processos": {
+        "title": "Processos",
+        "summary": "Processos judiciais ativos e arquivados do CPF ou do CNPJ.",
+        "cents": 990,
+        "inputs": [{"id": "cpf", "label": "CPF"}, {"id": "cnpj", "label": "CNPJ"}],
+        "bullets": ["Processos ativos e arquivados", "Tribunal, número, classe e valor", "Partes e relatório em PDF"],
+        "calls": {
+            "cpf": {"path": "/consulta/cpf/credits", "tipo": "processos-simples", "field": "cpf"},
+            "cnpj": {"path": "/consulta/cpf/credits", "tipo": "processos-simples", "field": "cnpj"},
+        },
+    },
     "rating": {
         "title": "Rating de crédito",
         "summary": "Score, risco, pendências, protestos e cheques sem fundo.",

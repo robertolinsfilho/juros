@@ -94,6 +94,14 @@ def main():
     assert auth.prepare_consulta("localizador", "maria@example.com", "email")[0]["document"] == "maria@example.com"
     assert auth.prepare_consulta("localizador", "11987654321", "telefone")[0]["search_type"] == "telefone"
     assert auth.prepare_consulta("protestos", "11.222.333/0001-81", "cnpj")[0] is not None
+    processos, processos_erro = auth.prepare_consulta("processos", "11.222.333/0001-81", "cnpj")
+    assert processos_erro == "" and processos["cents"] == 990 and processos["document"] == "11222333000181"
+    assert auth.CONSULTAS["processos"]["calls"]["cnpj"] == {
+        "path": "/consulta/cpf/credits",
+        "tipo": "processos-simples",
+        "field": "cnpj",
+    }
+    assert auth.CONSULTAS["processos"]["calls"]["cpf"]["field"] == "cpf"
 
     body = auth.build_consulta_preference(9, "Localizador", 990, "maria@example.com")
     assert body["external_reference"] == "consulta:9"

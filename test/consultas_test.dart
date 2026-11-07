@@ -227,4 +227,65 @@ void main() {
     expect(find.text('95110-151'), findsOneWidget);
     expect(find.text('A consulta não trouxe registros.'), findsNothing);
   });
+
+  testWidgets('os processos do CNPJ aparecem com número, partes e PDF', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: ResultView(
+              value: {
+                'dados': {
+                  'quantidade_acoes': 1,
+                  'quantidade_arquivadas': 0,
+                  'acoes': [
+                    {
+                      'tribunal': 'TJSP',
+                      'grau': 'GRAU 1',
+                      'numero_processo': '0001234-56.2023.8.26.0100',
+                      'classe': 'PROCEDIMENTO COMUM CIVEL',
+                      'assunto': 'INADIMPLEMENTO',
+                      'valor': '15000,00',
+                      'data_distribuicao': '14/03/2023',
+                      'uf': 'SP',
+                      'segredo_justica': 'NAO',
+                      'partes': [
+                        {
+                          'nome': 'BANCO EXEMPLO S.A.',
+                          'documento': '00000000000191',
+                          'tipo': 'AUTOR',
+                          'polo': 'ATIVO',
+                        },
+                      ],
+                      'status': {'status_processo': 'EM ANDAMENTO'},
+                    },
+                  ],
+                  'acoes_arquivadas': [],
+                  'pdf': 'https://example.com/processos.pdf',
+                },
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Processos ativos'), findsOneWidget);
+    expect(find.text('0001234-56.2023.8.26.0100'), findsOneWidget);
+    expect(find.text('TJSP'), findsOneWidget);
+    expect(find.text('INADIMPLEMENTO'), findsOneWidget);
+    expect(find.text('R\$ 15.000,00'), findsOneWidget);
+    expect(find.text('Não'), findsOneWidget);
+    expect(find.text('BANCO EXEMPLO S.A.'), findsOneWidget);
+    expect(find.text('00.000.000/0001-91'), findsOneWidget);
+    expect(find.text('EM ANDAMENTO'), findsOneWidget);
+    expect(find.text('Abrir PDF'), findsOneWidget);
+    expect(find.text('Arquivados'), findsNothing);
+  });
 }

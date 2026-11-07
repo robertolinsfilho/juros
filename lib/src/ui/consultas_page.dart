@@ -275,6 +275,13 @@ const _faces = <String, _Face>{
     colors: [Color(0xFFB23B4A), Color(0xFF6E2430)],
     icon: Icons.gps_fixed,
   ),
+  'processos': _Face(
+    title: 'Processos',
+    summary: 'Processos judiciais ativos e arquivados de uma empresa ou pessoa',
+    badge: 'CPF / CNPJ',
+    colors: [Color(0xFF5A3A8C), Color(0xFF2E1C52)],
+    icon: Icons.gavel_outlined,
+  ),
   'rating': _Face(
     title: 'Rating de Crédito',
     summary: 'Score de risco e probabilidade de inadimplência em segundos',
@@ -981,6 +988,24 @@ const _labels = {
   'quadro_societario': 'Sócios',
   'acoes_civeis': 'Ações',
   'acoesCiveis': 'Ações',
+  'quantidade_acoes': 'Processos ativos',
+  'quantidade_arquivadas': 'Processos arquivados',
+  'acoes': 'Processos',
+  'acoes_arquivadas': 'Arquivados',
+  'numero_processo': 'Número',
+  'tribunal': 'Tribunal',
+  'grau': 'Grau',
+  'assunto': 'Assunto',
+  'data_distribuicao': 'Distribuição',
+  'segredo_justica': 'Segredo de justiça',
+  'justica_gratuita': 'Justiça gratuita',
+  'partes': 'Partes',
+  'polo': 'Polo',
+  'documento': 'Documento',
+  'status_processo': 'Situação',
+  'julgamentos': 'Julgamentos',
+  'tipo_julgamento': 'Julgamento',
+  'data_julgamento': 'Data',
   'chequesSemFundo': 'Cheques sem fundo',
   'ch_sem_fundos_bacen': 'Cheques sem fundo',
   'scrBacen': 'BACEN',
@@ -1153,6 +1178,7 @@ String _scalarTitle(Map map) {
   if (flats.contains('nmcompleto') || flats.contains('nrcpf') || flats.contains('dtnascimento')) {
     return 'Identificação';
   }
+  if (flats.contains('quantidadeacoes')) return 'Processos';
   return 'Dados';
 }
 
@@ -1325,6 +1351,10 @@ List<Widget> _mapFields(Map map, {String? skipTitle}) {
 }
 
 String _recordTitle(Map map, int index) {
+  for (final key in ['numero_processo', 'numeroProcesso', 'tipo_julgamento', 'tipoJulgamento']) {
+    final value = map[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
   for (final entry in map.entries) {
     final flat = _flat(entry.key.toString());
     if (flat != 'nmcompleto' && flat != 'nomecompleto' && flat != 'razaosocial' && flat != 'cartorio') continue;
@@ -1399,6 +1429,11 @@ String _show(String key, Object value) {
     final cents = _moneyCents(text);
     if (cents != null) return fmtMoney(cents);
   }
+  if (flat.contains('segredo') || flat.contains('gratuita')) {
+    final code = text.toUpperCase();
+    if (code == 'SIM' || code == 'S') return 'Sim';
+    if (code == 'NAO' || code == 'NÃO' || code == 'N') return 'Não';
+  }
   final digits = text.replaceAll(RegExp(r'\D'), '');
   final document = _document(flat, digits);
   if (document != null) return document;
@@ -1417,6 +1452,8 @@ String _show(String key, Object value) {
 String? _document(String flat, String digits) {
   if (flat.contains('cpf') && digits.length == 11) return _maskDocument(digits);
   if (flat.contains('cnpj') && digits.length == 14) return _maskDocument(digits);
+  if (flat == 'documento' && digits.length == 11) return _maskDocument(digits);
+  if (flat == 'documento' && digits.length == 14) return _maskDocument(digits);
   return null;
 }
 
